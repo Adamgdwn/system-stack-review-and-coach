@@ -13,6 +13,8 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from .agents import build_agents
+from .ai_engine import answer_question, get_engine_status
+from .exporting import build_share_text
 from .reporting import generate_report
 from .scanner import map_filesystem, suggest_roots
 
@@ -30,6 +32,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
 
         self.current_report: dict | None = None
         self.current_map: dict | None = None
+        self.engine_status: dict | None = None
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         self.add(root)
@@ -71,6 +74,10 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.status_label.set_xalign(0)
         root.pack_start(self.status_label, False, False, 0)
 
+        self.engine_label = Gtk.Label(label="Checking local AI engine...")
+        self.engine_label.set_xalign(0)
+        root.pack_start(self.engine_label, False, False, 0)
+
         content = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         root.pack_start(content, True, True, 0)
 
@@ -103,10 +110,16 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         notebook.append_page(self.scan_page, Gtk.Label(label="Find And Map"))
         self._build_scan_page()
 
+        self.coach_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.coach_page.set_border_width(6)
+        notebook.append_page(self.coach_page, Gtk.Label(label="Ask The Coach"))
+        self._build_coach_page()
+
         self.command_view = self._make_text_view()
         notebook.append_page(self._frame("Command Log", self.command_view), Gtk.Label(label="Command Log"))
 
         self.show_all()
+        self._refresh_engine_status()
         self.on_run_review(None)
 
     def _make_text_view(self) -> Gtk.TextView:
@@ -169,12 +182,62 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.map_results_view = self._make_text_view()
         self.scan_page.pack_start(self._frame("System Map", self.map_results_view), True, True, 0)
 
+    def _build_coach_page(self) -> None:
+        intro = Gtk.Label(
+            label=(
+                "Ask questions about your stack and the app will answer using the local AI engine when available. "
+                "This keeps the coaching flow interactive without sending your environment data away."
+            )
+        )
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        self.coach_page.pack_start(intro, False, False, 0)
+
+        prompts_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.coach_page.pack_start(prompts_row, False, False, 0)
+        for prompt in [
+            "What stands out about my stack?",
+            "What should I learn next?",
+            "How do these tools fit together?",
+            "What did the folder scan reveal?",
+        ]:
+            button = Gtk.Button(label=prompt)
+            button.connect("clicked", self.on_prompt_clicked, prompt)
+            prompts_row.pack_start(button, False, False, 0)
+
+        self.question_entry = Gtk.Entry()
+        self.question_entry.set_placeholder_text("Ask a question about your environment, tools, or selected roots...")
+        self.question_entry.connect("activate", self.on_ask_coach)
+        self.coach_page.pack_start(self.question_entry, False, False, 0)
+
+        coach_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.coach_page.pack_start(coach_actions, False, False, 0)
+        self.ask_button = Gtk.Button(label="Ask Local AI")
+        self.ask_button.connect("clicked", self.on_ask_coach)
+        coach_actions.pack_start(self.ask_button, False, False, 0)
+
+        self.refresh_engine_button = Gtk.Button(label="Refresh AI Status")
+        self.refresh_engine_button.connect("clicked", self.on_refresh_engine_clicked)
+        coach_actions.pack_start(self.refresh_engine_button, False, False, 0)
+
+        self.coach_view = self._make_text_view()
+        self.coach_page.pack_start(self._frame("Coach Conversation", self.coach_view), True, True, 0)
+
     def _set_text(self, view: Gtk.TextView, text: str) -> None:
         buffer_ = view.get_buffer()
         buffer_.set_text(text)
 
     def _set_status(self, text: str) -> None:
         self.status_label.set_text(text)
+
+    def _append_text(self, view: Gtk.TextView, text: str) -> None:
+        buffer_ = view.get_buffer()
+        existing = buffer_.get_text(buffer_.get_start_iter(), buffer_.get_end_iter(), True)
+        buffer_.set_text(f"{existing}\n\n{text}".strip())
+
+    def _refresh_engine_status(self) -> None:
+        self.engine_status = get_engine_status()
+        self.engine_label.set_text(f"Local AI engine: {self.engine_status['message']}")
 
     def _selected_roots(self) -> list[str]:
         roots = []
@@ -266,6 +329,10 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             )
             or "No command log available.",
         )
+        self._append_text(
+            self.coach_view,
+            "System: Review complete. Ask the coach things like what stands out, what to learn next, or how the tools fit together.",
+        )
         self._set_status("Review complete. Explore the desktop app panels to learn the environment.")
         self.review_button.set_sensitive(True)
         return False
@@ -307,6 +374,8 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             )
         else:
             sections.append("- No common config markers found in the selected scope.")
+        if system_map["missing_roots"]:
+            sections.extend(["", "Missing roots:", *[f"- {item}" for item in system_map["missing_roots"]]])
 
         sections.append("")
         sections.append("Detected roots and projects:")
@@ -321,6 +390,10 @@ class StackCoachWindow(Gtk.ApplicationWindow):
                 sections.append(f"  permission limits: {', '.join(scan['permission_errors'][:5])}")
 
         self._set_text(self.map_results_view, "\n".join(sections))
+        self._append_text(
+            self.coach_view,
+            "System: Filesystem map complete. You can now ask the coach what the selected roots reveal about the machine.",
+        )
         self._set_status("Filesystem map complete.")
         self.map_button.set_sensitive(True)
         return False
@@ -330,33 +403,39 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             self._set_status("Run a review before copying a share summary.")
             return
 
-        lines = [
-            "System Stack Review and Coach",
-            "",
-            f"Generated: {self.current_report['generated_at']}",
-            f"Operating system: {self.current_report['environment'].get('os', 'Unknown')}",
-            f"Shell: {self.current_report['environment'].get('shell', 'Unknown')}",
-            f"Installed components: {self.current_report['summary']['installed_component_count']}",
-            "Detected tools:",
-            *[
-                f"- {component['label']} ({component['category']})"
-                for component in self.current_report["components"][:18]
-            ],
-        ]
-        if self.current_map:
-            lines.extend(
-                [
-                    "",
-                    f"Roots scanned: {self.current_map['summary']['roots_scanned']}",
-                    f"Projects detected: {self.current_map['summary']['projects_detected']}",
-                    f"Configs detected: {self.current_map['summary']['configs_detected']}",
-                ]
-            )
-        lines.extend(["", "Generated locally on this machine."])
-
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        clipboard.set_text("\n".join(lines), -1)
+        clipboard.set_text(build_share_text(self.current_report, self.current_map), -1)
         self._set_status("Share summary copied to the clipboard.")
+
+    def on_refresh_engine_clicked(self, _button: Gtk.Button | None) -> None:
+        self._refresh_engine_status()
+        self._set_status("Local AI engine status refreshed.")
+
+    def on_prompt_clicked(self, _button: Gtk.Button | None, prompt: str) -> None:
+        self.question_entry.set_text(prompt)
+        self.on_ask_coach(None)
+
+    def on_ask_coach(self, _widget: Gtk.Widget | None) -> None:
+        question = self.question_entry.get_text().strip()
+        if not question:
+            self._set_status("Type a question for the coach first.")
+            return
+        self.ask_button.set_sensitive(False)
+        self._append_text(self.coach_view, f"You: {question}")
+        self._set_status("Local AI is thinking...")
+        threading.Thread(target=self._ask_coach_worker, args=(question,), daemon=True).start()
+
+    def _ask_coach_worker(self, question: str) -> None:
+        response = answer_question(question, self.current_report, self.current_map)
+        GLib.idle_add(self._apply_coach_answer, response)
+
+    def _apply_coach_answer(self, response: dict) -> bool:
+        model = response.get("model") or "local engine unavailable"
+        self._append_text(self.coach_view, f"Coach [{model}]: {response['answer']}")
+        self.ask_button.set_sensitive(True)
+        self._refresh_engine_status()
+        self._set_status("Coach answer ready.")
+        return False
 
 
 class StackCoachDesktopApp(Gtk.Application):

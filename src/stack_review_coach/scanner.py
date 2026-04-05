@@ -158,12 +158,14 @@ def _scan_root(root: Path, *, max_depth: int = 4, max_entries: int = 6000) -> di
 def map_filesystem(roots: list[str]) -> dict:
     home = Path.home()
     requested = []
+    missing = []
     seen = set()
     for root_text in roots:
         if not root_text.strip():
             continue
         resolved = _safe_resolve(root_text)
         if not resolved.exists():
+            missing.append(str(resolved))
             continue
         marker = str(resolved)
         if marker in seen:
@@ -182,9 +184,14 @@ def map_filesystem(roots: list[str]) -> dict:
         "Project markers like `package.json`, `pyproject.toml`, and `Cargo.toml` are often the quickest clues to how a folder works.",
         "Configuration files explain how your shell, Git, editors, and Docker behave on this machine.",
     ]
+    if missing:
+        teaching_notes.append("Some requested roots did not exist and were skipped.")
+    if total_permission_errors:
+        teaching_notes.append("Permission limits are normal on many systems. They help show where the map could not inspect further.")
 
     return {
         "requested_roots": [str(root) for root in requested],
+        "missing_roots": missing,
         "summary": {
             "roots_scanned": len(scans),
             "projects_detected": total_projects,

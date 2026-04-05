@@ -35,6 +35,10 @@ exceptions:
 agent_controls:
   applicable: true
   autonomy_level: A1
-  model_registry: []
+  model_registry:
+    - provider: ollama
+      model: qwen3:8b
+      role: local-coach-engine
   prompt_registry:
     - local-probe-agent-command-set
+    - local-ai-coach-system-prompt

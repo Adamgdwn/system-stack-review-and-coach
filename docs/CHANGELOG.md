@@ -8,5 +8,7 @@
 - Added an opt-in filesystem mapper for selected roots with project and config discovery.
 - Added a share-summary action for local findings.
 - Converted the primary interface from browser-first to a native GTK desktop shell.
+- Added an interactive Ask The Coach workflow powered by a local Ollama model.
+- Added stronger scan warnings and local AI status handling.
 - Added launcher scripts for direct execution and desktop installation.
 - Added architecture, deployment, runbook, ADR, and exception documentation for the first release.
