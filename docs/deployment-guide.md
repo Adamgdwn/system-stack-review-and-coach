@@ -31,6 +31,7 @@ Because this is a local internal tool, staging and prod differ mainly by install
 - Manual smoke test:
   - launch the app
   - confirm the desktop window opens
+  - resize the window narrower and wider and confirm the main panels adapt instead of becoming cramped
   - confirm the local AI status line reports Ollama health clearly
   - confirm the environment snapshot and component cards populate
   - confirm scan suggestions appear and an opt-in root scan returns project/config findings

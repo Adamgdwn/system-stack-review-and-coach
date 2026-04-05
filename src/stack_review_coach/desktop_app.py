@@ -25,6 +25,8 @@ def build_report() -> dict:
 
 
 class StackCoachWindow(Gtk.ApplicationWindow):
+    NARROW_LAYOUT_WIDTH = 1120
+
     def __init__(self, app: Gtk.Application):
         super().__init__(application=app, title="System Stack Review and Coach")
         self.set_default_size(1220, 840)
@@ -55,37 +57,40 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         subtitle.set_line_wrap(True)
         header.pack_start(subtitle, False, False, 0)
 
-        action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        action_row = self._make_wrapping_flow()
         root.pack_start(action_row, False, False, 0)
 
         self.review_button = Gtk.Button(label="Run Local Review")
         self.review_button.connect("clicked", self.on_run_review)
-        action_row.pack_start(self.review_button, False, False, 0)
+        action_row.add(self.review_button)
 
         self.map_button = Gtk.Button(label="Scan Selected Roots")
         self.map_button.connect("clicked", self.on_run_map)
-        action_row.pack_start(self.map_button, False, False, 0)
+        action_row.add(self.map_button)
 
         self.share_button = Gtk.Button(label="Copy Share Summary")
         self.share_button.connect("clicked", self.on_copy_summary)
-        action_row.pack_start(self.share_button, False, False, 0)
+        action_row.add(self.share_button)
 
         self.status_label = Gtk.Label(label="Ready. Run a review to learn the environment.")
         self.status_label.set_xalign(0)
+        self.status_label.set_line_wrap(True)
         root.pack_start(self.status_label, False, False, 0)
 
         self.engine_label = Gtk.Label(label="Checking local AI engine...")
         self.engine_label.set_xalign(0)
+        self.engine_label.set_line_wrap(True)
         root.pack_start(self.engine_label, False, False, 0)
 
-        content = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        root.pack_start(content, True, True, 0)
+        self.content_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_paned.set_wide_handle(True)
+        root.pack_start(self.content_paned, True, True, 0)
 
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        content.add1(left)
-        content.add2(right)
-        content.set_position(540)
+        self.content_paned.add1(left)
+        self.content_paned.add2(right)
+        self.content_paned.set_position(540)
 
         self.summary_view = self._make_text_view()
         left.pack_start(self._frame("Summary", self.summary_view), True, True, 0)
@@ -97,6 +102,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         left.pack_start(self._frame("Learning Path", self.learning_view), True, True, 0)
 
         notebook = Gtk.Notebook()
+        notebook.set_scrollable(True)
         right.pack_start(notebook, True, True, 0)
 
         self.components_view = self._make_text_view()
@@ -118,6 +124,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.command_view = self._make_text_view()
         notebook.append_page(self._frame("Command Log", self.command_view), Gtk.Label(label="Command Log"))
 
+        self.connect("size-allocate", self._on_size_allocate)
         self.show_all()
         self._refresh_engine_status()
         self.on_run_review(None)
@@ -131,12 +138,26 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         view.set_right_margin(10)
         return view
 
+    def _make_wrapping_flow(self) -> Gtk.FlowBox:
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_column_spacing(8)
+        flow.set_row_spacing(8)
+        flow.set_max_children_per_line(20)
+        flow.set_homogeneous(False)
+        flow.set_valign(Gtk.Align.START)
+        return flow
+
     def _frame(self, title: str, widget: Gtk.Widget) -> Gtk.Frame:
         frame = Gtk.Frame(label=title)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_hexpand(True)
+        scroll.set_vexpand(True)
         scroll.add(widget)
         frame.add(scroll)
+        frame.set_hexpand(True)
+        frame.set_vexpand(True)
         return frame
 
     def _build_scan_page(self) -> None:
@@ -155,7 +176,11 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.scan_page.pack_start(suggestions_label, False, False, 0)
 
         self.roots_list = Gtk.ListBox()
-        self.scan_page.pack_start(self.roots_list, False, False, 0)
+        roots_scroll = Gtk.ScrolledWindow()
+        roots_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        roots_scroll.set_min_content_height(120)
+        roots_scroll.add(self.roots_list)
+        self.scan_page.pack_start(roots_scroll, False, False, 0)
 
         for root in suggest_roots():
             row = Gtk.ListBoxRow()
@@ -193,7 +218,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         intro.set_line_wrap(True)
         self.coach_page.pack_start(intro, False, False, 0)
 
-        prompts_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        prompts_row = self._make_wrapping_flow()
         self.coach_page.pack_start(prompts_row, False, False, 0)
         for prompt in [
             "What stands out about my stack?",
@@ -203,22 +228,22 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         ]:
             button = Gtk.Button(label=prompt)
             button.connect("clicked", self.on_prompt_clicked, prompt)
-            prompts_row.pack_start(button, False, False, 0)
+            prompts_row.add(button)
 
         self.question_entry = Gtk.Entry()
         self.question_entry.set_placeholder_text("Ask a question about your environment, tools, or selected roots...")
         self.question_entry.connect("activate", self.on_ask_coach)
         self.coach_page.pack_start(self.question_entry, False, False, 0)
 
-        coach_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        coach_actions = self._make_wrapping_flow()
         self.coach_page.pack_start(coach_actions, False, False, 0)
         self.ask_button = Gtk.Button(label="Ask Local AI")
         self.ask_button.connect("clicked", self.on_ask_coach)
-        coach_actions.pack_start(self.ask_button, False, False, 0)
+        coach_actions.add(self.ask_button)
 
         self.refresh_engine_button = Gtk.Button(label="Refresh AI Status")
         self.refresh_engine_button.connect("clicked", self.on_refresh_engine_clicked)
-        coach_actions.pack_start(self.refresh_engine_button, False, False, 0)
+        coach_actions.add(self.refresh_engine_button)
 
         self.coach_view = self._make_text_view()
         self.coach_page.pack_start(self._frame("Coach Conversation", self.coach_view), True, True, 0)
@@ -238,6 +263,17 @@ class StackCoachWindow(Gtk.ApplicationWindow):
     def _refresh_engine_status(self) -> None:
         self.engine_status = get_engine_status()
         self.engine_label.set_text(f"Local AI engine: {self.engine_status['message']}")
+
+    def _on_size_allocate(self, _widget: Gtk.Widget, allocation: Gdk.Rectangle) -> None:
+        if allocation.width < self.NARROW_LAYOUT_WIDTH:
+            if self.content_paned.get_orientation() != Gtk.Orientation.VERTICAL:
+                self.content_paned.set_orientation(Gtk.Orientation.VERTICAL)
+            self.content_paned.set_position(int(allocation.height * 0.44))
+            return
+
+        if self.content_paned.get_orientation() != Gtk.Orientation.HORIZONTAL:
+            self.content_paned.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.content_paned.set_position(int(allocation.width * 0.46))
 
     def _selected_roots(self) -> list[str]:
         roots = []

@@ -26,6 +26,8 @@ System Stack Review and Coach is a local-only educational application that helps
 6. If the user asks a question, the desktop shell builds a local prompt from the report and optional map, then submits it to the local Ollama model.
 7. The desktop shell renders the final report and AI coaching conversation for exploration and sharing.
 
+The desktop shell adapts its layout based on window size so smaller screens can stack major panels vertically while larger screens stay side-by-side.
+
 In browser fallback mode, the local HTTP server exposes the same information through local endpoints.
 
 No remote services are required, and no probe or filesystem results are transmitted off-machine by the application.

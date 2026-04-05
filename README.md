@@ -63,6 +63,7 @@ python3 -m compileall src tests
 - The app can use a local Ollama model as its coaching engine to answer questions about the detected stack and mapped roots.
 - The reporting layer turns raw findings into learner-friendly summaries, compatibility notes, and next-step coaching.
 - The GUI can generate a shareable plain-language summary from local findings.
+- The native desktop shell adapts between wider side-by-side and narrower stacked layouts as the window size changes.
 - A browser-hosted interface remains available as an optional fallback mode.
 
 ## Why It’s Useful

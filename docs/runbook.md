@@ -42,6 +42,7 @@ First response:
 - If a specific tool is reported incorrectly, run its version command directly in a shell and compare the output.
 - If filesystem mapping feels too broad, clear the selected roots and rerun with only the directories you want to inspect.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `qwen3:8b`.
+- If the window feels cramped, resize it; the shell should reflow between side-by-side and stacked layouts automatically.
 
 ## Escalation
 

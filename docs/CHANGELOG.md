@@ -10,5 +10,6 @@
 - Converted the primary interface from browser-first to a native GTK desktop shell.
 - Added an interactive Ask The Coach workflow powered by a local Ollama model.
 - Added stronger scan warnings and local AI status handling.
+- Made the native desktop shell adapt more cleanly to narrow and wide window sizes.
 - Added launcher scripts for direct execution and desktop installation.
 - Added architecture, deployment, runbook, ADR, and exception documentation for the first release.
