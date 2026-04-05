@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Stack Review and Coach</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">System Stack Review and Coach</p>
+          <h1>Learn what is installed, what it does, and how your tools fit together.</h1>
+          <p class="lede">
+            A guided, local-first stack tour for newer developers. The app runs local probe agents on your machine,
+            turns their findings into plain-language coaching, and shows how common tools connect.
+          </p>
+          <div class="hero-actions">
+            <button id="runReviewButton">Run Local Review</button>
+            <button id="shareSummaryButton" class="secondary-button">Copy Share Summary</button>
+            <span class="subtle">Nothing leaves your machine. Reviews happen through local command probes.</span>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="metric-card">
+            <span class="metric-label">Mode</span>
+            <strong>Local Agents</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Audience</span>
+            <strong>New to Intermediate Coders</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Output</span>
+            <strong>Interactive Guided Report</strong>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="panel summary-panel">
+          <div class="panel-header">
+            <h2>Review Status</h2>
+            <p id="statusText">Ready to inspect your environment.</p>
+          </div>
+          <div id="summaryGrid" class="summary-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Environment Snapshot</h2>
+            <p>The foundations of the machine and session you are working inside.</p>
+          </div>
+          <div id="environmentGrid" class="data-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Detected Components</h2>
+            <p>Each card explains what a component does and what it usually works well with.</p>
+          </div>
+          <div id="componentGrid" class="component-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Find And Map</h2>
+            <p>Choose which folders the app is allowed to inspect. This is optional and local-only.</p>
+          </div>
+          <div class="scan-controls">
+            <div id="suggestedRoots" class="chip-list"></div>
+            <label class="input-label" for="customRootsInput">Custom roots</label>
+            <textarea
+              id="customRootsInput"
+              rows="4"
+              placeholder="/home/adamgoodwin&#10;/etc&#10;/path/to/project"
+            ></textarea>
+            <div class="scan-actions">
+              <button id="runMapButton">Scan Selected Roots</button>
+              <span class="subtle">Only the roots you select or enter are scanned.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="two-up">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>System Map Summary</h2>
+              <p>High-level counts so newer users can see the shape of the system.</p>
+            </div>
+            <div id="mapSummaryGrid" class="summary-grid"></div>
+            <ul id="mapTeachingNotes" class="text-list"></ul>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Config Discovery</h2>
+              <p>Common config files that explain how tools and editors behave.</p>
+            </div>
+            <div id="configGrid" class="stack-list"></div>
+          </section>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Detected Projects And Roots</h2>
+            <p>Marker-based discovery of likely projects, repos, and interesting directories.</p>
+          </div>
+          <div id="scanResults" class="stack-list"></div>
+        </section>
+
+        <section class="two-up">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Likely Stack Patterns</h2>
+              <p>Helpful guesses about the kinds of projects this environment supports.</p>
+            </div>
+            <div id="stackMatches" class="stack-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Learning Path</h2>
+              <p>A suggested order for getting comfortable with the environment.</p>
+            </div>
+            <ol id="learningPath" class="learning-list"></ol>
+          </section>
+        </section>
+
+        <section class="two-up">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Recommendations</h2>
+              <p>Small next steps that make the environment easier to understand and use.</p>
+            </div>
+            <ul id="recommendations" class="text-list"></ul>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Command Log</h2>
+              <p>What the local probe agents ran during the review.</p>
+            </div>
+            <div id="commandLog" class="command-log"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="componentTemplate">
+      <article class="component-card">
+        <div class="component-topline">
+          <span class="pill category"></span>
+          <span class="version"></span>
+        </div>
+        <h3 class="title"></h3>
+        <p class="role"></p>
+        <p class="path"></p>
+        <div class="pairs"></div>
+        <p class="tip"></p>
+      </article>
+    </template>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

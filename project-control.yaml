@@ -1,0 +1,40 @@
+project_name: system-stack-review-and-coach
+project_type: internal-tool
+risk_tier: medium
+repository_model: single-repo
+owner:
+  name: Adam Goodwin
+  role: owner
+technical_lead:
+  name: codex session
+  role: technical-lead
+status: active
+environments:
+  - dev
+  - staging
+  - prod
+data_classification:
+  handles_sensitive_data: false
+  handles_money: false
+  notes: ""
+controls:
+  required_docs:
+    - README.md
+    - docs/architecture.md
+    - docs/deployment-guide.md
+    - docs/runbook.md
+    - docs/CHANGELOG.md
+    - docs/risks/risk-register.md
+  machine_enforcement:
+    - required-file-check
+    - lint
+    - tests
+    - secret-scan
+exceptions:
+  - EX-2026-04-05-governance-home
+agent_controls:
+  applicable: true
+  autonomy_level: A1
+  model_registry: []
+  prompt_registry:
+    - local-probe-agent-command-set
