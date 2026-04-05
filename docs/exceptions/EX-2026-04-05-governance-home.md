@@ -5,25 +5,25 @@
 - Exception ID: EX-2026-04-05-governance-home
 - Project: system-stack-review-and-coach
 - Standard: Governance preflight execution
-- Status: Open
+- Status: Closed
 - Approval date: 2026-04-05
-- Review date: 2026-04-12
+- Review date: 2026-04-05
 
 ## Deviation
 
-The repository requires `bash scripts/governance-preflight.sh` before substantial changes. The script depends on an external governance repository referenced through `GOVERNANCE_HOME`, and that dependency is not configured in the current environment.
+The repository required `bash scripts/governance-preflight.sh` before substantial changes. The script depended on an external governance repository referenced through `GOVERNANCE_HOME`, and that dependency was not configured in the local environment at the time the exception was opened.
 
 ## Justification
 
-The project work needs to proceed in the present local environment, but the missing external governance repository prevents the automated preflight from running successfully.
+The project work needed to proceed in the local environment while the governance repository location was being verified and wired into shell startup.
 
 ## Risk Introduced
 
-An external policy check may be skipped, which increases the chance that a repo-level governance requirement outside this repository is missed.
+Before closure, an external policy check could have been skipped, increasing the chance that a repo-level governance requirement outside this repository would be missed.
 
 ## Compensating Controls
 
-The repository-level governance files were reviewed directly, the exception is documented explicitly, required docs are updated in the same task, and validation commands are run locally.
+The governance repository was found at `/home/adamgoodwin/code/Rules of Development and Deployment`, `GOVERNANCE_HOME` was configured in shell startup, and the project preflight was rerun successfully.
 
 ## Approvals
 

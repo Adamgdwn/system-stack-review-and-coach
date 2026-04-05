@@ -30,8 +30,7 @@ controls:
     - lint
     - tests
     - secret-scan
-exceptions:
-  - EX-2026-04-05-governance-home
+exceptions: []
 agent_controls:
   applicable: true
   autonomy_level: A1

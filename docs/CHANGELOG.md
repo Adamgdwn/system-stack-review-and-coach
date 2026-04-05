@@ -11,5 +11,6 @@
 - Added an interactive Ask The Coach workflow powered by a local Ollama model.
 - Added stronger scan warnings and local AI status handling.
 - Made the native desktop shell adapt more cleanly to narrow and wide window sizes.
+- Configured persistent local governance path setup and closed the governance preflight exception.
 - Added launcher scripts for direct execution and desktop installation.
 - Added architecture, deployment, runbook, ADR, and exception documentation for the first release.
