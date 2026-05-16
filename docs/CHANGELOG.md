@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added elevated action execution mode: eligible privileged plans can now request OS administrator/root approval through Linux `pkexec`/Polkit or Windows UAC after the user presses Execute.
 - Added a reusable troubleshooting mental model and system-access prompt so Request Desk reasons through symptoms, evidence, hypotheses, permissions, verification, and learning across request types.
 - Added hypothesis-style Request Desk reasoning with evidence checks, alternate families, and local learning notes from completed, failed, or blocked executions.
 - Added an evidence-to-fix follow-up planner so executed display/dock investigations can produce the next exact executable recommendation in Request Desk instead of stopping at analysis.

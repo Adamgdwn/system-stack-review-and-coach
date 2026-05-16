@@ -195,6 +195,62 @@ class MaintenanceActionsTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(run.call_count, 2)
 
+    def test_elevated_plan_requires_elevated_runner_flag(self):
+        control_path = self._project_control("governance_level: 1\nautonomy_level: A1\naction_runner_enabled: true\n")
+        plan = {
+            "id": "plan-package-manager-health",
+            "family": "package-manager-health",
+            "title": "Review apt package health",
+            "approval_required": True,
+            "execution_enabled": False,
+            "risk": "medium",
+            "reversible": False,
+            "requires_privilege": True,
+            "commands": ["apt-get check"],
+            "expected_effect": "Review package manager health with administrator privileges.",
+            "rollback": [],
+        }
+
+        contract = build_action_contract(plan, project_control_path=control_path)
+
+        self.assertTrue(contract["eligible_for_guarded_execution"])
+        self.assertFalse(contract["execution_enabled"])
+        self.assertEqual(contract["execution_mode"], "elevated")
+        self.assertTrue(any("elevated_action_runner_enabled" in reason for reason in contract["execution_gate"]["reasons"]))
+
+    def test_elevated_plan_executes_through_pkexec(self):
+        control_path = self._project_control(
+            "governance_level: 1\nautonomy_level: A1\naction_runner_enabled: true\nelevated_action_runner_enabled: true\n"
+        )
+        plan = {
+            "id": "plan-package-manager-health",
+            "family": "package-manager-health",
+            "title": "Review apt package health",
+            "approval_required": True,
+            "execution_enabled": False,
+            "risk": "medium",
+            "reversible": False,
+            "requires_privilege": True,
+            "commands": ["apt-get check"],
+            "expected_effect": "Review package manager health with administrator privileges.",
+            "rollback": [],
+        }
+
+        contract = build_action_contract(plan, project_control_path=control_path)
+
+        with patch("system_coach_maintenance_manager.maintenance_actions.shutil.which", return_value="/usr/bin/pkexec"), patch(
+            "system_coach_maintenance_manager.maintenance_actions.subprocess.run",
+            return_value=CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr=""),
+        ) as run:
+            result = execute_guarded_action(contract, "")
+
+        self.assertTrue(contract["eligible_for_guarded_execution"])
+        self.assertTrue(contract["execution_enabled"])
+        self.assertEqual(contract["execution_mode"], "elevated")
+        self.assertEqual(contract["elevation_prompt"]["method"], "pkexec")
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(run.call_args.args[0][:2], ["pkexec", "apt-get"])
+
 
 if __name__ == "__main__":
     unittest.main()

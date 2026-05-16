@@ -272,6 +272,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     f"- Action id: {contract['id']}",
                     f"- Eligible for guarded execution: {contract['eligible_for_guarded_execution']}",
                     f"- Execution enabled: {contract['execution_enabled']}",
+                    f"- Execution mode: {contract.get('execution_mode', 'user')}",
                     f"- Confirmation phrase: {contract['confirmation_phrase']}",
                     *[f"- Gate: {reason}" for reason in gate_reasons],
                     *[f"- Post-check: {item}" for item in contract.get("post_check", [])],
@@ -845,6 +846,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             return
         contract = plan.get("action_contract", {})
         executable = contract.get("execution_enabled", False)
+        execution_mode = contract.get("execution_mode", "user")
+        elevation_prompt = contract.get("elevation_prompt") or {}
         gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
         if executable:
             self.execution_gate_label.set_text("Selected fix can execute. Press Execute Selected Fix to run it now.")
@@ -952,7 +955,12 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 why_parts.append(f"Permission plan: {reasoning['permission_plan']}")
             why = "\n".join(why_parts) or plan.get("summary", "The request matched a known maintenance family.")
 
-        if executable and changes_system:
+        if executable and execution_mode == "elevated":
+            action = (
+                "Execute will request administrator permission with the operating-system password prompt, "
+                "then run the exact elevated command(s)."
+            )
+        elif executable and changes_system:
             action = "Execute will apply this low-risk current-user setting change."
         elif executable:
             action = "Execute will run these guarded command(s), capture the output, and ask Gemma for the best next fix direction."
@@ -980,6 +988,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             "Commands:",
             *(f"- {command}" for command in commands),
         ]
+        if elevation_prompt:
+            lines.extend(["", "Elevation:", elevation_prompt.get("message", "This action needs administrator approval.")])
         if gate_reasons:
             lines.extend(["", "Why blocked:", *(f"- {reason}" for reason in gate_reasons)])
         lines.extend(
@@ -1051,6 +1061,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 f"Risk: {plan['risk']}",
                 f"Reversible: {plan['reversible']}",
                 f"Requires privilege: {plan['requires_privilege']}",
+                f"Execution mode: {contract.get('execution_mode', 'user')}",
                 f"Execution enabled: {contract.get('execution_enabled', False)}",
                 "",
                 "Gate reasons:",
@@ -1084,7 +1095,12 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self._start_plan_execution(self.current_request_plan)
 
     def _start_plan_execution(self, plan: dict) -> None:
-        self._set_status("Executing the selected recommendation...")
+        contract = plan.get("action_contract", {})
+        if contract.get("execution_mode") == "elevated":
+            prompt = (contract.get("elevation_prompt") or {}).get("message", "The operating system will ask for administrator approval.")
+            self._set_status(f"Executing elevated recommendation. {prompt}")
+        else:
+            self._set_status("Executing the selected recommendation...")
         self._set_execution_buttons_sensitive(False)
         threading.Thread(target=self._execute_plan_worker, args=(plan,), daemon=True).start()
 
@@ -1163,7 +1179,10 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     "Reason:",
                     gate_reasons,
                     "",
-                    "Only exact, low-risk, reversible, non-privileged plans in the guarded catalog can execute.",
+                    (
+                        "Only exact plans in the user-level or elevated guarded catalogs can execute. "
+                        "Elevated plans also require the project elevated runner flag and OS administrator approval."
+                    ),
                 ]
             )
             status = "Execution did not run. Review the gate reason."

@@ -37,7 +37,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run Maintenance Diagnostics.
 - Prepare a Request Desk plan.
 - Confirm Approval Queue and History update.
-- Confirm action execution records completed output for eligible low-risk plans and blocked reasons for ineligible plans.
+- Confirm action execution records completed output for eligible user-level plans, prompts for eligible elevated plans, and blocked reasons for ineligible plans.
 - Ask Coach a short question when Ollama is available.
 
 ## Windows Browser Mode Smoke Test
@@ -45,7 +45,7 @@ Use this checklist before sharing a build with another machine or user.
 - Launch from PowerShell with `$env:PYTHONPATH="src"; python -m system_coach_maintenance_manager --browser --no-browser`.
 - Open the printed local URL.
 - Confirm local review, Request Desk, Approval Queue, History, and Coach Chat render.
-- Confirm action contracts are visible and execution remains disabled.
+- Confirm action contracts are visible, user-level execution records output, elevated execution shows the expected OS authorization prompt, and blocked plans show readable reasons.
 - Confirm missing Windows diagnostic commands produce readable warnings instead of crashes.
 
 ## Packaging

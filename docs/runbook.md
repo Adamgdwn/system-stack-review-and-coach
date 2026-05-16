@@ -7,7 +7,7 @@ This system teaches users about their local development environment through a na
 It can also perform an opt-in filesystem map for user-selected roots to explain project folders, repositories, and configuration files in plain language.
 The maintenance diagnostics workflow runs read-only system health checks and prepares approval-required plans without executing fixes.
 Maintenance reports and Request Desk plans are appended to a local JSONL history archive.
-Prepared plans include approved-action contracts. Eligible low-risk plans can execute only after the user presses Execute.
+Prepared plans include approved-action contracts. Eligible current-user plans can execute after the user presses Execute. Eligible elevated plans can then ask for the operating-system administrator password/UAC approval before running.
 When Ollama is available locally, it can answer follow-up questions using the local model and the generated stack, filesystem, and maintenance context.
 
 ## Alerts And Failures
@@ -22,6 +22,7 @@ Likely failure conditions:
 - A maintenance diagnostic command is missing, times out, or returns permission-limited evidence.
 - The local history archive cannot be written or read.
 - An action contract appears blocked even though the user expects it to run.
+- An elevated action does not show a password/UAC prompt or fails because `pkexec`, Polkit, PowerShell, or UAC is unavailable.
 - Ollama is unavailable, has no supported model, or returns an error while answering.
 - The desktop launcher points to an outdated repository path.
 
@@ -36,7 +37,7 @@ First response:
 7. Run maintenance diagnostics and review findings before preparing any machine-changing action.
 8. Refresh the History view to confirm diagnostics and request plans are being recorded.
 9. Check the Approval Queue to confirm each prepared plan shows exact commands and a clear execution state.
-10. If an action-run attempt is tested, confirm eligible low-risk plans run and record output, while ineligible plans record blocked reasons.
+10. If an action-run attempt is tested, confirm eligible user-level plans run and record output, elevated plans show the OS authorization prompt, and ineligible plans record blocked reasons.
 
 ## Dependencies
 
@@ -46,6 +47,8 @@ First response:
 - The files under `src/system_coach_maintenance_manager/web/`
 - Optional local tools being probed, such as `git`, `node`, `docker`, and `gh`
 - Optional read-only maintenance commands such as `findmnt`, `systemctl`, `journalctl`, `ip`, and a local package manager
+- Linux `pkexec`/Polkit for elevated execution
+- Windows PowerShell and UAC for elevated execution
 - Windows browser mode can use read-only commands such as `wevtutil`, `route`, and `winget` when present
 - Read access for any folders the user chooses to map
 - Write access to `history/maintenance-history.jsonl` or the directory configured by `SYSTEM_COACH_HISTORY_DIR`
@@ -58,10 +61,12 @@ First response:
 - If a specific tool is reported incorrectly, run its version command directly in a shell and compare the output.
 - If filesystem mapping feels too broad, clear the selected roots and rerun with only the directories you want to inspect.
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
-- If an approval-required plan is generated, review the exact command, target, risk, and rollback before pressing Execute. Low-risk user-level plans can execute when the contract allows them; higher-risk or privileged plans stay blocked.
+- If an approval-required plan is generated, review the exact command, target, risk, and rollback before pressing Execute. User-level and elevated plans can execute when the matching contract allows them.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before pressing Execute.
 - If Request Desk appears to choose the wrong lane, read the Current Recommendation's hypothesis, evidence check, and alternate families; after execution, the app records a local learning note so later requests can improve.
-- If an action contract says execution is blocked, review the gate reasons; privileged, destructive, placeholder, unsupported, or higher-risk plans should remain blocked.
+- If an elevated action fails on Linux, confirm `pkexec` is installed and a Polkit authentication agent is running in the desktop session.
+- If an elevated action fails on Windows, confirm PowerShell can launch UAC prompts for the current account.
+- If an action contract says execution is blocked, review the gate reasons; placeholder, unsupported, uncatalogued, or insufficiently specified plans should remain blocked.
 - If history does not update, check directory permissions or set `SYSTEM_COACH_HISTORY_DIR` to a writable local path.
 - If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.
@@ -73,6 +78,6 @@ Escalate to the project owner or technical lead when:
 
 - the local launcher repeatedly fails on multiple machines
 - a probe command causes unexpected side effects
-- a maintenance diagnostic suggests a privileged, irreversible, or broad cleanup action
+- a maintenance diagnostic suggests a privileged, irreversible, broad cleanup, or high-risk system action outside the elevated catalog
 - any user wants action execution enabled rather than preview-only contracts
 - governance requirements or exception handling need review

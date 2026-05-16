@@ -38,6 +38,7 @@ controls:
     - tests
     - secret-scan
   action_runner_enabled: true
+  elevated_action_runner_enabled: true
 exceptions: []
 agent_controls:
   applicable: true

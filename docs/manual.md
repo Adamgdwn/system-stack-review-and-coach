@@ -16,7 +16,7 @@ The next product direction is to grow this into a system maintenance and trouble
 - Request Desk plans cover common troubleshooting families but remain approval-required previews.
 - Display and dock requests collect monitor layout, rotation, dock, GPU, and session log evidence before any display setting or driver change is proposed.
 - The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
-- Approved-action contracts gate execution. The Execute button runs only eligible low-risk plans after user approval.
+- Approved-action contracts gate execution. The Execute button runs eligible current-user plans directly and eligible elevated plans through an OS password/UAC prompt after user approval.
 - Local history records diagnostic snapshots and request-plan previews for later review.
 - Any future repair or cleanup action must require explicit user approval before execution.
 
@@ -26,7 +26,7 @@ This project is set to governance level `1` with agent autonomy `A1`.
 
 In practical terms, the tool may inspect, summarize, reason about requests, and recommend. It may prepare changes or commands, but machine-changing actions require user approval before they are applied.
 
-The current build can run eligible low-risk guarded plans when the user presses Execute. Gemma can classify the request family, but it cannot invent executable commands or bypass the guarded catalog. Plans that are privileged, destructive, unsupported, or not exact remain blocked and may be recorded in history.
+The current build can run eligible guarded plans when the user presses Execute. Gemma can reason about the request and prepare plans, but it cannot invent executable commands or bypass the guarded catalog. Current-user plans run directly when eligible. Elevated plans can request administrator/root permission through the operating system prompt when `elevated_action_runner_enabled: true` is set and the plan passes the elevated contract. Unsupported, placeholder, or uncatalogued plans remain blocked and may be recorded in history.
 
 After an eligible plan runs, Gemma reviews the captured output and summarizes what was found, the most likely cause, and the best next fix direction. This keeps Execute useful for investigation plans as well as direct low-risk setting changes.
 

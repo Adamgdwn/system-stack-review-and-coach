@@ -7,12 +7,14 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 
 
 DEFAULT_TIMEOUT_SECONDS = 30
 CONTRACT_VERSION = "approved-action-contract-v1"
 MAX_OUTPUT_BYTES = 20000
+ALLOWED_RISKS = {"low", "medium", "high"}
 LOW_RISK_FAMILIES = {
     "cursor-size",
     "display-brightness",
@@ -26,12 +28,26 @@ LOW_RISK_FAMILIES = {
     "journal-errors",
     "network-basics",
 }
+ELEVATED_FAMILIES = {
+    "failed-services",
+    "journal-errors",
+    "network-basics",
+    "network-dns",
+    "package-manager-health",
+    "package-updates",
+    "startup-apps",
+}
 ALLOWED_EXECUTABLES = {
+    "apt",
+    "apt-get",
     "brightnessctl",
     "cat",
+    "choco",
     "cmd",
     "cosmic-randr",
     "cosmic-settings",
+    "dnf",
+    "dpkg",
     "eventvwr.msc",
     "gsettings",
     "ip",
@@ -43,12 +59,14 @@ ALLOWED_EXECUTABLES = {
     "lspci",
     "lsusb",
     "pactl",
+    "pacman",
     "powershell",
     "pwsh",
     "resolvectl",
     "route",
     "systemctl",
     "wevtutil",
+    "winget",
     "xfconf-query",
     "xrandr",
 }
@@ -73,6 +91,7 @@ def load_runner_controls(project_control_path: Path | None = None) -> dict:
         "governance_level": None,
         "autonomy_level": None,
         "action_runner_enabled": False,
+        "elevated_action_runner_enabled": False,
         "source": str(path),
     }
     if not path.exists():
@@ -92,6 +111,9 @@ def load_runner_controls(project_control_path: Path | None = None) -> dict:
         elif stripped.startswith("action_runner_enabled:"):
             raw_value = stripped.split(":", 1)[1].strip().lower()
             controls["action_runner_enabled"] = raw_value in {"true", "yes", "1"}
+        elif stripped.startswith("elevated_action_runner_enabled:"):
+            raw_value = stripped.split(":", 1)[1].strip().lower()
+            controls["elevated_action_runner_enabled"] = raw_value in {"true", "yes", "1"}
     return controls
 
 
@@ -102,29 +124,40 @@ def _has_placeholder(command: str) -> bool:
 def _candidate_assessment(plan: dict) -> dict:
     commands = plan.get("commands", [])
     family = plan.get("family", plan.get("finding_id", "maintenance"))
+    requires_privilege = bool(plan.get("requires_privilege"))
+    risk = plan.get("risk")
     reasons = []
     if not plan.get("approval_required", True):
         reasons.append("plan does not require approval")
-    if plan.get("risk") != "low":
-        reasons.append("plan risk is not low")
-    if not plan.get("reversible"):
-        reasons.append("plan is not marked reversible")
-    if plan.get("requires_privilege"):
-        reasons.append("plan requires privilege")
-    if family not in LOW_RISK_FAMILIES:
-        reasons.append("plan family is not in the low-risk guarded catalog")
     if not commands:
         reasons.append("plan has no exact command preview")
     if any(_has_placeholder(command) for command in commands):
         reasons.append("plan contains placeholder command text")
+
+    if requires_privilege:
+        execution_mode = "elevated"
+        if risk not in ALLOWED_RISKS:
+            reasons.append("elevated plan risk must be low, medium, or high")
+        if family not in ELEVATED_FAMILIES:
+            reasons.append("plan family is not in the elevated guarded catalog")
+    else:
+        execution_mode = "user"
+        if risk != "low":
+            reasons.append("user-level guarded execution requires low risk")
+        if not plan.get("reversible"):
+            reasons.append("user-level guarded execution requires a reversible plan")
+        if family not in LOW_RISK_FAMILIES:
+            reasons.append("plan family is not in the low-risk guarded catalog")
+
     for command in commands:
-        allowed, reason = _command_allowed(command, family)
+        allowed, reason = _command_allowed(command, family, requires_privilege=requires_privilege)
         if not allowed:
             reasons.append(reason or f"command is not allowed: {command}")
     return {
         "eligible": not reasons,
         "reasons": reasons,
         "family": family,
+        "execution_mode": execution_mode,
     }
 
 
@@ -138,6 +171,8 @@ def _execution_gate(controls: dict, assessment: dict) -> dict:
         reasons.append("guarded execution currently requires A1 user-approved autonomy")
     if not controls.get("action_runner_enabled"):
         reasons.append("action_runner_enabled is not set in project controls")
+    if assessment["execution_mode"] == "elevated" and not controls.get("elevated_action_runner_enabled"):
+        reasons.append("elevated_action_runner_enabled is not set in project controls")
     if not assessment["eligible"]:
         reasons.extend(assessment["reasons"])
     return {
@@ -150,7 +185,7 @@ def _split_command(command: str) -> list[str]:
     return shlex.split(command, posix=os.name != "nt")
 
 
-def _command_allowed(command: str, family: str) -> tuple[bool, str | None]:
+def _command_allowed(command: str, family: str, *, requires_privilege: bool = False) -> tuple[bool, str | None]:
     try:
         parts = _split_command(command)
     except ValueError as exc:
@@ -163,9 +198,22 @@ def _command_allowed(command: str, family: str) -> tuple[bool, str | None]:
     if executable in {"gsettings", "xfconf-query"}:
         if not any(verb in parts for verb in READ_ONLY_VERBS | MUTATING_VERBS) and "-s" not in parts:
             return False, f"{executable} command does not declare an allowed read or set operation"
-    if executable in {"cmd", "powershell", "pwsh"} and family not in {"cursor-size", "display-dock", "journal-errors", "network-basics"}:
+    if executable in {"cmd", "powershell", "pwsh"} and not requires_privilege and family not in {"cursor-size", "display-dock", "journal-errors", "network-basics"}:
         return False, f"{executable} execution is only enabled for guarded settings or read-only evidence plans"
     return True, None
+
+
+def _elevation_prompt() -> dict:
+    if os.name == "nt":
+        return {
+            "method": "windows-uac",
+            "message": "Windows will show a UAC prompt for this elevated action.",
+        }
+    return {
+        "method": "pkexec",
+        "available": shutil.which("pkexec") is not None,
+        "message": "Linux will show a Polkit password prompt through pkexec for this elevated action.",
+    }
 
 
 def build_action_contract(plan: dict, project_control_path: Path | None = None) -> dict:
@@ -187,6 +235,8 @@ def build_action_contract(plan: dict, project_control_path: Path | None = None) 
         "approval_required": True,
         "confirmation_phrase": f"APPROVE {action_id}",
         "execution_enabled": gate["allowed"],
+        "execution_mode": assessment["execution_mode"],
+        "elevation_prompt": _elevation_prompt() if assessment["execution_mode"] == "elevated" else None,
         "execution_gate": gate,
         "command_preview": list(plan.get("commands", [])),
         "expected_effect": plan.get("expected_effect", ""),
@@ -251,8 +301,9 @@ def execute_guarded_action(contract: dict, confirmation_text: str) -> dict:
     outputs = []
     commands = contract.get("command_preview", [])
     family = contract.get("family", "")
+    requires_privilege = contract.get("execution_mode") == "elevated" or bool(contract.get("requires_privilege"))
     for command in commands:
-        allowed, reason = _command_allowed(command, family)
+        allowed, reason = _command_allowed(command, family, requires_privilege=requires_privilege)
         if not allowed:
             return {
                 "action_id": contract.get("id"),
@@ -269,8 +320,11 @@ def execute_guarded_action(contract: dict, confirmation_text: str) -> dict:
                 "rollback": contract.get("rollback", []),
             }
         try:
+            command_parts = _split_command(command)
+            if requires_privilege:
+                command_parts = _elevated_command_parts(command_parts)
             completed = subprocess.run(
-                _split_command(command),
+                command_parts,
                 capture_output=True,
                 check=False,
                 text=True,
@@ -324,3 +378,16 @@ def execute_guarded_action(contract: dict, confirmation_text: str) -> dict:
         "post_check": contract.get("post_check", []),
         "rollback": contract.get("rollback", []),
     }
+
+
+def _elevated_command_parts(parts: list[str]) -> list[str]:
+    if os.name == "nt":
+        exe = parts[0]
+        args = " ".join(shlex.quote(part) for part in parts[1:])
+        script = f"Start-Process -FilePath {exe!r} -ArgumentList {args!r} -Verb RunAs -Wait"
+        shell = "powershell"
+        return [shell, "-NoProfile", "-Command", script]
+
+    if not shutil.which("pkexec"):
+        raise OSError("pkexec is not available; install/configure Polkit or run the command manually with administrator rights")
+    return ["pkexec", *parts]

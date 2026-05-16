@@ -36,7 +36,7 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 7. Request Desk collects bounded read-only evidence relevant to the accumulated request, such as display topology, audio devices, routes, package-manager state, Docker usage, startup entries, performance basics, services, or logs.
 8. Request Desk sends the accumulated user request, operating-system hint, desktop hint, recent maintenance findings, request evidence, and recent local learning notes to the local Gemma model for structured hypothesis building and clarification.
 9. The deterministic planner accepts only whitelisted model-selected investigation lanes, then prepares the concrete approval-required plan. Display/dock symptoms are routed to topology and compositor evidence collection before any fix is proposed.
-10. Prepared plans receive an approved-action contract; eligible low-risk plans can run only when the user presses Execute.
+10. Prepared plans receive an approved-action contract; eligible current-user plans can run when the user presses Execute, and eligible elevated plans can request administrator/root authorization through the operating system prompt.
 11. After a guarded action completes, Gemma reviews the captured output and summarizes findings, likely cause, and the best next fix direction.
 12. If the completed action was an evidence plan and the output names an exact safe fix, the follow-up planner prepares the next approval-required executable recommendation in Request Desk.
 13. Maintenance reports, Request Desk plans, completed, failed, or blocked action results, and short action-result learning notes can be appended to local history for later review and future Request Desk context.
@@ -57,6 +57,7 @@ No remote services are required, and no probe or filesystem results are transmit
 - A local Ollama service when interactive AI coaching is enabled
 - Local operating-system commands when present, such as `python3`, `git`, `node`, or `docker`
 - Optional read-only maintenance commands when present, such as Linux `findmnt`, `systemctl`, `journalctl`, `ip`, package-manager health checks, or Windows `wevtutil`, `route`, and `winget`
+- Linux `pkexec`/Polkit or Windows PowerShell/UAC for elevated execution
 - Read access for any folders the user chooses to map
 - Write access to the local history directory, `history/` by default or `SYSTEM_COACH_HISTORY_DIR` when configured
 
@@ -65,10 +66,10 @@ No remote services are required, and no probe or filesystem results are transmit
 - ADR 0001 selects a local web GUI because `tkinter` was not available in the target Python environment.
 - Agent controls were reassessed to `A1` because the tool now uses bounded local probe agents to execute read-only inspection commands.
 - The Request Desk uses a universal troubleshooting method rather than issue-specific diagnosis prompts: restate the symptom, form hypotheses, gather local evidence, compare against known-good state, choose the smallest useful action, verify, and record the lesson.
-- System-access prompts tell Gemma it may reason from everything the local app can view and may prepare plans at any privilege/risk level, while deterministic governance decides whether a plan can execute now or must remain blocked/manual/admin-approved.
+- System-access prompts tell Gemma it may reason from everything the local app can view and may prepare plans at any privilege/risk level, while deterministic governance decides whether a plan can execute as current user, request OS administrator/root authorization, or remain blocked/manual.
 - Filesystem mapping is opt-in and scope-based to avoid surprising broad scans across the machine.
 - Local AI coaching uses an on-device model through Ollama so stack questions can stay within the local environment.
 - Maintenance diagnostics remain read-only by default. Gemma is allowed to build and reassess hypotheses, but command selection and execution eligibility remain deterministic. Prepared plans require approval, and eligible guarded plans execute only when the user presses Execute.
-- Approved-action contracts make execution requirements visible, and guarded execution stays limited to user-approved low-risk plans.
+- Approved-action contracts make execution requirements visible, including whether a plan runs as the current user or through an elevated OS authorization prompt.
 - Local history is JSONL so support handoff can use regular file tools without a database dependency.
 - Browser mode is the portability baseline. Native Windows UI support is a future enhancement unless a cross-platform GUI toolkit is introduced.

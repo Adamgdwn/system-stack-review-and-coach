@@ -107,9 +107,9 @@ Status: completed.
 Status: completed.
 
 - Keep project controls at governance level `1` and autonomy level `A1`, with `action_runner_enabled: true` for user-approved guarded execution.
-- Make the desktop Execute button run enabled low-risk plans instead of only showing blocked review text.
-- Keep execution limited to exact, reversible, non-privileged commands in the guarded catalog.
-- Keep privileged, destructive, placeholder, medium-risk, and unsupported plans blocked with visible reasons.
+- Make the desktop Execute button run enabled low-risk user-level plans instead of only showing blocked review text.
+- Keep this chunk limited to exact, reversible, non-privileged commands in the guarded catalog.
+- Keep privileged, destructive, placeholder, medium-risk, and unsupported plans blocked with visible reasons until the later elevated execution chunk.
 - Record completed, failed, and blocked action attempts in local history.
 
 ## Chunk 10: Interactive Request Desk
@@ -133,3 +133,15 @@ Status: completed.
 - Analyze completed guarded action output with Gemma so Execute produces useful findings and next-fix direction.
 - Simplify the desktop Request Desk and Approval Queue so the default view is a plain-language current recommendation and selected-fix card.
 - Add Request Desk in-place execution so the user does not have to switch tabs to run the current guarded recommendation.
+
+## Chunk 12: Elevated System Execution
+
+Status: completed.
+
+- Add an explicit elevated execution mode for plans that require administrator/root privileges.
+- Enable elevated plans through `elevated_action_runner_enabled: true` in project controls.
+- Use Linux `pkexec`/Polkit to show a password prompt for elevated actions.
+- Use Windows PowerShell/UAC as the Windows elevated execution path.
+- Keep elevated execution approval-required, exact-command-only, catalog-gated, and recorded in history.
+- Show execution mode and elevation prompt details in the desktop recommendation and review surfaces.
+- Keep unsupported, placeholder, and uncatalogued elevated plans blocked with visible reasons.
