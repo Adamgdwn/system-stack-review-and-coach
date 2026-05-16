@@ -14,6 +14,7 @@ SCALE_RE = re.compile(r"Scale:\s*(\d+(?:\.\d+)?)%")
 TRANSFORM_RE = re.compile(r"Transform:\s*([A-Za-z0-9]+)")
 MODEL_RE = re.compile(r"Model:\s*(.*)")
 CURRENT_MODE_RE = re.compile(r"(\d+)\s*x\s*(\d+)\s*@\s*([\d.]+)\s*Hz.*\(current\)")
+OUTPUT_NAME_RE = re.compile(r"\b(?:eDP|DVI-I|DP|HDMI|VGA)-[A-Za-z0-9_.:-]+\b", re.IGNORECASE)
 
 
 def _strip_ansi(text: str) -> str:
@@ -23,6 +24,10 @@ def _strip_ansi(text: str) -> str:
 def _scale_percent_to_ratio(value: float) -> str:
     ratio = value / 100
     return f"{ratio:.2f}".rstrip("0").rstrip(".")
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
 
 
 def _refresh_value(value: str) -> str:
@@ -104,6 +109,81 @@ def _common_external_y(displays: list[dict[str, Any]], affected: dict[str, Any])
     if not external_y:
         return affected.get("y")
     return Counter(external_y).most_common(1)[0][0]
+
+
+def _target_transform_from_request(request_text: str) -> str | None:
+    normalized = _normalize(request_text)
+    if "normal" in normalized or "landscape" in normalized or "unrotate" in normalized:
+        return "normal"
+    if "180" in normalized:
+        return "rotate180"
+    if "270" in normalized:
+        return "rotate270"
+    if "90" in normalized or "portrait" in normalized or "rotate" in normalized or "rotated" in normalized:
+        return "rotate90"
+    return None
+
+
+def _choose_display_from_request(displays: list[dict[str, Any]], request_text: str) -> dict[str, Any] | None:
+    normalized = _normalize(request_text)
+    named = OUTPUT_NAME_RE.search(request_text)
+    if named:
+        output = named.group(0).lower()
+        for display in displays:
+            if display.get("name", "").lower() == output:
+                return display
+
+    external = [item for item in displays if not item.get("name", "").startswith("eDP-")]
+    candidates = external or displays
+    if not candidates:
+        return None
+    if "right" in normalized or "far right" in normalized:
+        return sorted(candidates, key=lambda item: item.get("x", 0), reverse=True)[0]
+    if "left" in normalized:
+        return sorted(candidates, key=lambda item: item.get("x", 0))[0]
+    return _choose_affected_display(displays) or sorted(candidates, key=lambda item: item.get("x", 0), reverse=True)[0]
+
+
+def build_cosmic_display_layout_request_from_intent(request_text: str, output: str) -> dict[str, Any] | None:
+    """Resolve a plain-language display request into an exact COSMIC layout request."""
+
+    transform = _target_transform_from_request(request_text)
+    if not transform:
+        return None
+    displays = parse_cosmic_displays(output)
+    target = _choose_display_from_request(displays, request_text)
+    if not target or not target.get("current_mode"):
+        return None
+    if not {"x", "y", "scale_percent", "transform"} <= target.keys():
+        return None
+
+    mode = target["current_mode"]
+    target_y = target.get("y")
+    if transform == "normal":
+        target_y = _common_external_y(displays, target)
+    if target_y is None:
+        target_y = 0
+
+    old_scale = _scale_percent_to_ratio(float(target["scale_percent"]))
+    request = (
+        "Apply COSMIC display layout fix. "
+        f"Output {target['name']}. "
+        f"Set mode {mode['width']}x{mode['height']} refresh {mode['refresh']} "
+        f"position {target['x']},{target_y} scale 1.0 transform {transform}. "
+        f"Rollback mode {mode['width']}x{mode['height']} refresh {mode['refresh']} "
+        f"position {target['x']},{target['y']} scale {old_scale} transform {target['transform']}."
+    )
+    model = target.get("model")
+    return {
+        "family": "display-layout-fix",
+        "request_text": request,
+        "summary": (
+            f"Resolved the plain-language request to {target['name']}"
+            + (f" ({model})" if model else "")
+            + f": set transform {transform}, scale 100%, position {target['x']},{target_y}."
+        ),
+        "target_output": target["name"],
+    }
 
 
 def derive_cosmic_display_layout_fix(output: str) -> dict[str, Any] | None:

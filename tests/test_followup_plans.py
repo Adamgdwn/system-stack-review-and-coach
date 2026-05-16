@@ -1,6 +1,7 @@
 import unittest
 
 from system_coach_maintenance_manager.followup_plans import (
+    build_cosmic_display_layout_request_from_intent,
     build_followup_request,
     derive_cosmic_display_layout_fix,
     parse_cosmic_displays,
@@ -101,6 +102,18 @@ DVI-I-2 (enabled)
 """
 
         self.assertIsNone(derive_cosmic_display_layout_fix(output))
+
+    def test_build_cosmic_display_layout_request_from_right_monitor_intent(self):
+        followup = build_cosmic_display_layout_request_from_intent(
+            "Please rotate the monitor on my right 90 degrees and troubleshoot after.",
+            COSMIC_OUTPUT,
+        )
+
+        self.assertIsNotNone(followup)
+        self.assertEqual(followup["target_output"], "DVI-I-1")
+        self.assertIn("transform rotate90", followup["request_text"])
+        self.assertIn("scale 1.0", followup["request_text"])
+        self.assertIn("Rollback mode 1920x1080", followup["request_text"])
 
 
 if __name__ == "__main__":

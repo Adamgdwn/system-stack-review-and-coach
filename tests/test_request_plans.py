@@ -113,6 +113,53 @@ class RequestPlanTests(unittest.TestCase):
             "cosmic-randr mode DVI-I-1 1920 1080 --refresh 60 --pos-x 3840 --pos-y 0 --scale 1.25 --transform rotate90",
         )
 
+    def test_prepare_cosmic_display_layout_fix_from_plain_right_monitor_request(self):
+        reasoning = {
+            "source": "gemma",
+            "model": "gemma4:latest",
+            "family": "display-layout-fix",
+            "ready": True,
+            "confidence": 0.9,
+            "reasoning_summary": "Rotate the right monitor and verify behavior.",
+            "request_evidence": {
+                "scopes": ["display-dock"],
+                "commands": [
+                    {
+                        "command": "cosmic-randr list",
+                        "output": """
+DVI-I-2 (enabled)
+  Model: C27F390
+  Position: 1920,0
+  Scale: 100%
+  Transform: normal
+  Modes:
+    1920x1080 @ 60.000 Hz (current)
+DVI-I-1 (enabled)
+  Model: C27F390
+  Position: 3840,0
+  Scale: 100%
+  Transform: normal
+  Modes:
+    1920x1080 @ 60.000 Hz (current)
+""",
+                    }
+                ],
+            },
+        }
+        plan = prepare_request_plan(
+            "The monitor on my right should be rotated 90 degrees. Please rotate it and troubleshoot after.",
+            os_name="Linux",
+            distribution_hint="COSMIC",
+            family_override="display-layout-fix",
+            reasoning=reasoning,
+        )
+
+        self.assertEqual(plan["family"], "display-layout-fix")
+        self.assertTrue(plan["execution_enabled"])
+        self.assertIn("--transform rotate90", plan["commands"][0])
+        self.assertIn("DVI-I-1", plan["commands"][0])
+        self.assertIn("--scale 1.0", plan["commands"][0])
+
     def test_prepare_plan_accepts_gemma_family_override(self):
         reasoning = {
             "source": "gemma",

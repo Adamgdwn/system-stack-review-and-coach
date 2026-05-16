@@ -5,6 +5,7 @@ from __future__ import annotations
 import platform
 import re
 
+from .followup_plans import build_cosmic_display_layout_request_from_intent
 from .maintenance_actions import attach_action_contract
 
 SUPPORTED_FAMILY_OVERRIDES = {
@@ -475,13 +476,37 @@ def _cosmic_mode_command(details: dict, *, rollback: bool = False) -> str:
     )
 
 
-def _display_layout_fix_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+def _cosmic_evidence_output(reasoning: dict | None) -> str:
+    if not reasoning:
+        return ""
+    evidence = reasoning.get("request_evidence", {})
+    for command in evidence.get("commands", []):
+        if str(command.get("command", "")).startswith("cosmic-randr list"):
+            return str(command.get("output", ""))
+    return ""
+
+
+def _display_layout_fix_plan(
+    request_text: str,
+    platform_name: str,
+    platform_key: str,
+    reasoning: dict | None = None,
+) -> dict:
     details = _display_layout_fix_details(request_text)
+    if platform_key == "linux" and not details:
+        derived = build_cosmic_display_layout_request_from_intent(request_text, _cosmic_evidence_output(reasoning))
+        if derived:
+            request_text = derived["request_text"]
+            details = _display_layout_fix_details(request_text)
+            if reasoning is not None:
+                reasoning["reasoning_summary"] = derived["summary"]
+                reasoning["family"] = "display-layout-fix"
+                reasoning["ready"] = True
     if platform_key != "linux" or not details:
         plan = _triage_plan(request_text, platform_name, "display-layout-fix")
         plan["summary"] = (
-            "The request was identified as a display layout fix, but it did not include the exact "
-            "COSMIC output, mode, position, scale, transform, and rollback values needed for execution."
+            "The request was identified as a display layout fix, but the app could not resolve an exact "
+            "COSMIC output, mode, position, scale, transform, and rollback from the available evidence."
         )
         plan["expected_effect"] = "Wait for exact display evidence before changing a monitor layout."
         return plan
@@ -870,7 +895,7 @@ def prepare_request_plan(
     if family == "display-dock":
         return _apply_reasoning_metadata(_display_dock_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
     if family == "display-layout-fix":
-        return _apply_reasoning_metadata(_display_layout_fix_plan(request_text, platform_name, platform_key), reasoning)
+        return _apply_reasoning_metadata(_display_layout_fix_plan(request_text, platform_name, platform_key, reasoning), reasoning)
     if family == "cursor-size":
         return _apply_reasoning_metadata(_cursor_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
     if family == "display":
