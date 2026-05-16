@@ -6,7 +6,7 @@ System Coach and Maintenance Manager is a local-first desktop app that helps peo
 
 The tool also supports opt-in filesystem mapping and interactive local AI coaching. Users choose which roots the app may inspect, and the app turns common project files and config locations into a readable map of what is on the machine, what each part generally does, and how the pieces fit together.
 
-The maintenance workflow is intentionally supervised. The app can diagnose, explain, and prepare approval-required plans, but it does not execute fixes automatically.
+The maintenance workflow is intentionally supervised. The app can diagnose, explain, prepare approval-required plans, and execute eligible guarded plans only after the user presses Execute. Current-user plans run directly when they pass the contract; elevated plans use the operating system password/UAC prompt.
 
 If you have ever asked "What is actually installed here?" or "Why do these tools seem to work together?", this app is meant to answer that in plain language without shipping your machine data anywhere else.
 
@@ -25,6 +25,7 @@ Requirements:
 - `python3-gi` for the native Linux GTK desktop shell
 - `ollama` for interactive local AI coaching
 - A graphical Linux desktop session for native mode, or any desktop with a browser for fallback mode
+- `pkexec`/Polkit on Linux or PowerShell/UAC on Windows for elevated actions
 
 Run locally in the native desktop shell:
 
@@ -81,10 +82,11 @@ python3 -m compileall src tests
 - Read-only maintenance diagnostics inspect system health signals such as disk pressure, memory, CPU load, failed services, recent critical logs, network basics, and package-manager health across Linux and Windows where platform tools are available.
 - Maintenance plans are prepared as approval-required previews with commands, expected effects, risk, reversibility, and privilege flags.
 - The Request Desk turns specific requests into platform-aware approval-required plans for cursor/pointer size, display settings, audio routing, network/DNS issues, package/update repair, Docker cleanup review, startup app review, and slow-computer triage.
-- The Approval Queue makes prepared plans scannable before any future execution support exists.
+- The Approval Queue makes prepared plans scannable before execution.
 - Approved-action contracts are attached to prepared plans so command previews, confirmation phrases, timeouts, output capture policy, post-checks, and rollback notes are visible.
-- Guarded action execution is currently blocked by governance. Blocked attempts can be recorded, but commands are not run.
-- Local maintenance history records diagnostic snapshots and request-plan previews under `history/maintenance-history.jsonl` by default.
+- Guarded action execution runs exact catalogued commands only after user approval. Elevated plans can request administrator/root approval through Linux `pkexec`/Polkit or Windows UAC.
+- Plain-language COSMIC display layout requests such as rotating the right monitor resolve against local display evidence and can produce executable `cosmic-randr` plans with rollback.
+- Local maintenance history records diagnostic snapshots, request-plan previews, action results, and learning notes under `history/maintenance-history.jsonl` by default.
 - History includes a “changed since last diagnostic run” summary when at least two diagnostic snapshots are available.
 - Browser fallback mode includes both the Request Desk and local Coach Chat so Windows users can use the supervised workflow without GTK.
 - The app can use a local Ollama model as its coaching engine to answer questions about the detected stack and mapped roots.

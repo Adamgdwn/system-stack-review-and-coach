@@ -7,7 +7,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run `bash scripts/governance-preflight.sh`.
 - Confirm `project-control.yaml` still reflects the current governance level and autonomy level.
 - Review `docs/risks/risk-register.md` when adding new diagnostics, request families, history fields, or execution support.
-- Confirm all machine-changing actions remain disabled unless governance has been reassessed.
+- Confirm machine-changing actions remain approval-required and match the current user-level or elevated execution contracts.
 
 ## Automated Validation
 

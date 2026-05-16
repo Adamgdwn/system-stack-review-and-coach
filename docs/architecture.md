@@ -11,7 +11,7 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 - `src/system_coach_maintenance_manager/agents.py`: Defines local probe agents that execute version and capability checks for system tools.
 - `src/system_coach_maintenance_manager/ai_engine.py`: Connects to the local Ollama service, selects Gemma 4 when available, builds coaching prompts, and provides structured Request Desk reasoning.
 - `src/system_coach_maintenance_manager/diagnostics.py`: Collects read-only maintenance facts such as disk, memory, load, services, logs, network basics, and package-manager health.
-- `src/system_coach_maintenance_manager/followup_plans.py`: Turns completed evidence actions into the next exact guarded request when the evidence is strong enough.
+- `src/system_coach_maintenance_manager/followup_plans.py`: Turns completed evidence actions or plain display-layout intent into the next exact guarded request when the evidence is strong enough.
 - `src/system_coach_maintenance_manager/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and completed, failed, or blocked action-result records.
 - `src/system_coach_maintenance_manager/maintenance_history.py`: Appends local JSONL history records for diagnostic snapshots, request plans, approval decisions, action results, and learning notes.
 - `src/system_coach_maintenance_manager/maintenance_reporting.py`: Turns maintenance diagnostics into ranked findings and approval-required plan previews.
@@ -38,7 +38,7 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 9. The deterministic planner accepts only whitelisted model-selected investigation lanes, then prepares the concrete approval-required plan. Display/dock symptoms are routed to topology and compositor evidence collection before any fix is proposed.
 10. Prepared plans receive an approved-action contract; eligible current-user plans can run when the user presses Execute, and eligible elevated plans can request administrator/root authorization through the operating system prompt.
 11. After a guarded action completes, Gemma reviews the captured output and summarizes findings, likely cause, and the best next fix direction.
-12. If the completed action was an evidence plan and the output names an exact safe fix, the follow-up planner prepares the next approval-required executable recommendation in Request Desk.
+12. If the completed action was an evidence plan and the output names an exact safe fix, or if a plain COSMIC display-layout request can be resolved from local evidence, the follow-up planner prepares the next approval-required executable recommendation in Request Desk.
 13. Maintenance reports, Request Desk plans, completed, failed, or blocked action results, and short action-result learning notes can be appended to local history for later review and future Request Desk context.
 14. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
 15. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.

@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Gemma-backed Request Desk reasoning, Approval Queue, local maintenance history, guarded low-risk action execution, deeper display/dock investigation planning, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Gemma-backed Request Desk reasoning, Approval Queue, local maintenance history, guarded current-user and elevated action execution, a universal troubleshooting mental model, evidence-backed follow-up planning, plain-language COSMIC display layout fixes, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
 
 ## Chunk 1: Governance And Release Hygiene
 
@@ -40,7 +40,7 @@ Status: completed.
   - slow-computer guided triage
 - Route unknown requests into a clarifying triage flow.
 - Add request-plan tests for each supported family.
-- Keep all generated plans approval-required and non-executing.
+- Keep all generated plans approval-required; execution support is introduced later through guarded user-level and elevated action chunks.
 
 ## Chunk 4: Maintenance History And Evidence
 

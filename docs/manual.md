@@ -2,9 +2,7 @@
 
 ## Purpose
 
-System Coach and Maintenance Manager is a local-first desktop tool for understanding the machine it runs on. It explains installed development tools, maps user-selected filesystem roots, and offers local AI coaching through Ollama when available.
-
-The next product direction is to grow this into a system maintenance and troubleshooting coach while keeping user approval at the center of any machine-changing action.
+System Coach and Maintenance Manager is a local-first desktop tool for understanding and maintaining the machine it runs on. It explains installed development tools, maps user-selected filesystem roots, offers local AI coaching through Ollama when available, and prepares guarded troubleshooting actions for user approval.
 
 ## Operating Model
 
@@ -13,12 +11,13 @@ The next product direction is to grow this into a system maintenance and trouble
 - AI coaching is grounded in the generated report and selected map.
 - Gemma 4 through local Ollama is the Request Desk reasoning brain when available. Before it asks follow-up questions, the app collects bounded read-only evidence relevant to the request, such as display topology, audio devices, network routes, package-manager state, Docker usage, startup entries, performance basics, services, or recent logs.
 - Maintenance diagnostics run as read-only observations and recommendations.
-- Request Desk plans cover common troubleshooting families but remain approval-required previews.
+- Request Desk plans cover common troubleshooting families and remain approval-required.
 - Display and dock requests collect monitor layout, rotation, dock, GPU, and session log evidence before any display setting or driver change is proposed.
+- Plain-language COSMIC display layout requests can resolve phrases such as "right monitor" and "rotate 90 degrees" into exact `cosmic-randr` commands when local display evidence is available.
 - The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
 - Approved-action contracts gate execution. The Execute button runs eligible current-user plans directly and eligible elevated plans through an OS password/UAC prompt after user approval.
-- Local history records diagnostic snapshots and request-plan previews for later review.
-- Any future repair or cleanup action must require explicit user approval before execution.
+- Local history records diagnostic snapshots, request-plan previews, action results, and learning notes for later review.
+- Any repair or cleanup action must require explicit user approval before execution.
 
 ## Governance
 
@@ -46,7 +45,7 @@ After an eligible plan runs, Gemma reviews the captured output and summarizes wh
 
 ## Maintenance Direction
 
-The maintenance-manager expansion should prioritize:
+Future maintenance-manager expansion should prioritize:
 
 - read-only system health diagnostics
 - clear severity and evidence for each finding
