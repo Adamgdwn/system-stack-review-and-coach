@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an evidence-to-fix follow-up planner so executed display/dock investigations can produce the next exact executable recommendation in Request Desk instead of stopping at analysis.
+- Added a guarded COSMIC display layout fix family with exact `cosmic-randr` commands and rollback for rotation, scale, position, and mode changes.
 - Promoted Gemma 4 through Ollama into the Request Desk reasoning path: the model now classifies requests, asks clarification questions, and passes only whitelisted plan families into the guarded deterministic planner.
 - Added universal read-only Request Desk evidence collection so Gemma can inspect relevant local facts before asking the user for details.
 - Added Gemma post-execute analysis so completed guarded actions explain what was found, the likely cause, and the best next fix direction instead of only showing raw command output.

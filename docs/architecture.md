@@ -11,7 +11,8 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 - `src/system_coach_maintenance_manager/agents.py`: Defines local probe agents that execute version and capability checks for system tools.
 - `src/system_coach_maintenance_manager/ai_engine.py`: Connects to the local Ollama service, selects Gemma 4 when available, builds coaching prompts, and provides structured Request Desk reasoning.
 - `src/system_coach_maintenance_manager/diagnostics.py`: Collects read-only maintenance facts such as disk, memory, load, services, logs, network basics, and package-manager health.
-- `src/system_coach_maintenance_manager/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and blocked action-result records.
+- `src/system_coach_maintenance_manager/followup_plans.py`: Turns completed evidence actions into the next exact guarded request when the evidence is strong enough.
+- `src/system_coach_maintenance_manager/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and completed, failed, or blocked action-result records.
 - `src/system_coach_maintenance_manager/maintenance_history.py`: Appends local JSONL history records for diagnostic snapshots, request plans, approval decisions, and future action results.
 - `src/system_coach_maintenance_manager/maintenance_reporting.py`: Turns maintenance diagnostics into ranked findings and approval-required plan previews.
 - `src/system_coach_maintenance_manager/request_evidence.py`: Collects bounded read-only facts relevant to a Request Desk symptom before Gemma reasons over it.
@@ -36,9 +37,10 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 9. The deterministic planner accepts only whitelisted model-selected families, then prepares the concrete approval-required plan. Display/dock symptoms are routed to topology and compositor evidence collection before any fix is proposed.
 10. Prepared plans receive an approved-action contract; eligible low-risk plans can run only when the user presses Execute.
 11. After a guarded action completes, Gemma reviews the captured output and summarizes findings, likely cause, and the best next fix direction.
-12. Maintenance reports, Request Desk plans, and completed, failed, or blocked action results can be appended to local history for later review.
-13. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
-14. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
+12. If the completed action was an evidence plan and the output names an exact safe fix, the follow-up planner prepares the next approval-required executable recommendation in Request Desk.
+13. Maintenance reports, Request Desk plans, and completed, failed, or blocked action results can be appended to local history for later review.
+14. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
+15. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
 
 The desktop shell adapts its layout based on window size so smaller screens can stack major panels vertically while larger screens stay side-by-side.
 
@@ -63,7 +65,7 @@ No remote services are required, and no probe or filesystem results are transmit
 - Agent controls were reassessed to `A1` because the tool now uses bounded local probe agents to execute read-only inspection commands.
 - Filesystem mapping is opt-in and scope-based to avoid surprising broad scans across the machine.
 - Local AI coaching uses an on-device model through Ollama so stack questions can stay within the local environment.
-- Maintenance diagnostics are read-only in the current governance level. Gemma is allowed to reason about and classify requests, but command selection and execution eligibility remain deterministic. Prepared plans require approval, and eligible guarded plans execute only when the user presses Execute.
+- Maintenance diagnostics remain read-only by default. Gemma is allowed to reason about and classify requests, but command selection and execution eligibility remain deterministic. Prepared plans require approval, and eligible guarded plans execute only when the user presses Execute.
 - Approved-action contracts make execution requirements visible, and guarded execution stays limited to user-approved low-risk plans.
 - Local history is JSONL so support handoff can use regular file tools without a database dependency.
 - Browser mode is the portability baseline. Native Windows UI support is a future enhancement unless a cross-platform GUI toolkit is introduced.

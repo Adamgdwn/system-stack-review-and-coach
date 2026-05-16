@@ -50,6 +50,8 @@ The current low-risk catalog is:
 
 - cursor size
 - display brightness
+- display dock evidence
+- display layout fix
 - display night light
 - display refresh rate
 - display scaling

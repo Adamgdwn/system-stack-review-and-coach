@@ -90,6 +90,29 @@ class RequestPlanTests(unittest.TestCase):
         self.assertIn("journalctl -b -n 500 --no-pager", plan["commands"])
         self.assertIn("not a cursor-size change", plan["summary"])
 
+    def test_prepare_cosmic_display_layout_fix_is_executable(self):
+        plan = prepare_request_plan(
+            "Apply COSMIC display layout fix. Output DVI-I-1. "
+            "Set mode 1920x1080 refresh 60 position 3840,456 scale 1.0 transform normal. "
+            "Rollback mode 1920x1080 refresh 60 position 3840,0 scale 1.25 transform rotate90.",
+            os_name="Linux",
+            distribution_hint="COSMIC",
+            family_override="display-layout-fix",
+        )
+
+        self.assertEqual(plan["family"], "display-layout-fix")
+        self.assertEqual(plan["id"], "request-display-layout-fix-dvi-i-1")
+        self.assertTrue(plan["execution_enabled"])
+        self.assertFalse(plan["requires_privilege"])
+        self.assertEqual(
+            plan["commands"][0],
+            "cosmic-randr mode DVI-I-1 1920 1080 --refresh 60 --pos-x 3840 --pos-y 456 --scale 1.0 --transform normal",
+        )
+        self.assertEqual(
+            plan["rollback"][0],
+            "cosmic-randr mode DVI-I-1 1920 1080 --refresh 60 --pos-x 3840 --pos-y 0 --scale 1.25 --transform rotate90",
+        )
+
     def test_prepare_plan_accepts_gemma_family_override(self):
         reasoning = {
             "source": "gemma",

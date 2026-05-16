@@ -11,6 +11,7 @@ SUPPORTED_FAMILY_OVERRIDES = {
     "cursor-size",
     "display",
     "display-dock",
+    "display-layout-fix",
     "audio-routing",
     "network-dns",
     "package-updates",
@@ -424,6 +425,96 @@ def _display_dock_plan(request_text: str, platform_name: str, platform_key: str,
     return _unsupported_platform_plan(request_text, platform_name, "display-dock")
 
 
+DISPLAY_FIX_RE = re.compile(
+    r"Output\s+(?P<output>[A-Za-z0-9_.:-]+)\.\s+"
+    r"Set mode\s+(?P<width>\d+)x(?P<height>\d+)\s+refresh\s+(?P<refresh>[\d.]+)\s+"
+    r"position\s+(?P<x>-?\d+),(?P<y>-?\d+)\s+scale\s+(?P<scale>[\d.]+)\s+"
+    r"transform\s+(?P<transform>[A-Za-z0-9]+)\.\s+"
+    r"Rollback mode\s+(?P<rollback_width>\d+)x(?P<rollback_height>\d+)\s+"
+    r"refresh\s+(?P<rollback_refresh>[\d.]+)\s+"
+    r"position\s+(?P<rollback_x>-?\d+),(?P<rollback_y>-?\d+)\s+"
+    r"scale\s+(?P<rollback_scale>[\d.]+)\s+"
+    r"transform\s+(?P<rollback_transform>[A-Za-z0-9]+)",
+    re.IGNORECASE,
+)
+VALID_COSMIC_TRANSFORMS = {
+    "normal",
+    "rotate90",
+    "rotate180",
+    "rotate270",
+    "flipped",
+    "flipped90",
+    "flipped180",
+    "flipped270",
+}
+
+
+def _display_layout_fix_details(request_text: str) -> dict | None:
+    match = DISPLAY_FIX_RE.search(request_text)
+    if not match:
+        return None
+    details = match.groupdict()
+    details["transform"] = details["transform"].lower()
+    details["rollback_transform"] = details["rollback_transform"].lower()
+    if details["transform"] not in VALID_COSMIC_TRANSFORMS:
+        return None
+    if details["rollback_transform"] not in VALID_COSMIC_TRANSFORMS:
+        return None
+    return details
+
+
+def _cosmic_mode_command(details: dict, *, rollback: bool = False) -> str:
+    prefix = "rollback_" if rollback else ""
+    return (
+        f"cosmic-randr mode {details['output']} "
+        f"{details[prefix + 'width']} {details[prefix + 'height']} "
+        f"--refresh {details[prefix + 'refresh']} "
+        f"--pos-x {details[prefix + 'x']} --pos-y {details[prefix + 'y']} "
+        f"--scale {details[prefix + 'scale']} "
+        f"--transform {details[prefix + 'transform']}"
+    )
+
+
+def _display_layout_fix_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    details = _display_layout_fix_details(request_text)
+    if platform_key != "linux" or not details:
+        plan = _triage_plan(request_text, platform_name, "display-layout-fix")
+        plan["summary"] = (
+            "The request was identified as a display layout fix, but it did not include the exact "
+            "COSMIC output, mode, position, scale, transform, and rollback values needed for execution."
+        )
+        plan["expected_effect"] = "Wait for exact display evidence before changing a monitor layout."
+        return plan
+
+    command = _cosmic_mode_command(details)
+    rollback_command = _cosmic_mode_command(details, rollback=True)
+    return _request_plan(
+        plan_id=f"request-display-layout-fix-{details['output'].lower()}",
+        family="display-layout-fix",
+        title=f"Apply COSMIC display layout fix to {details['output']}",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="low",
+        reversible=True,
+        requires_privilege=False,
+        summary=(
+            f"Apply a current-user COSMIC display layout change for {details['output']}. "
+            f"It sets {details['width']}x{details['height']} at {details['refresh']} Hz, "
+            f"position {details['x']},{details['y']}, scale {details['scale']}, "
+            f"and transform {details['transform']}."
+        ),
+        commands=[command, "cosmic-randr list"],
+        manual_steps=[
+            "Confirm the affected monitor is the named output before executing.",
+            "After execution, confirm windows and cursor movement are usable on the target display.",
+            "If the layout feels wrong, run the rollback command from this plan.",
+        ],
+        expected_effect="Change the target COSMIC display output layout without using privileged system commands.",
+        rollback=[rollback_command],
+        approval_prompt="Approve only when the named display output and rollback command match the evidence.",
+    )
+
+
 def _audio_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
     input_request = _has_any(_normalize(request_text), ("microphone", "mic", "input"))
     target = "input" if input_request else "output"
@@ -617,6 +708,8 @@ def _slow_computer_plan(request_text: str, platform_name: str, platform_key: str
 def _family_for_request(normalized: str) -> str:
     if _is_display_dock_request(normalized):
         return "display-dock"
+    if _has_any(normalized, ("cosmic display layout fix", "apply cosmic display layout fix")):
+        return "display-layout-fix"
     if _has_any(normalized, ("cursor", "pointer")):
         return "cursor-size"
     if _has_any(normalized, ("docker", "container", "image", "volume", "prune")):
@@ -768,6 +861,8 @@ def prepare_request_plan(
         return _apply_reasoning_metadata(_triage_plan(request_text, platform_name), reasoning)
     if family == "display-dock":
         return _apply_reasoning_metadata(_display_dock_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
+    if family == "display-layout-fix":
+        return _apply_reasoning_metadata(_display_layout_fix_plan(request_text, platform_name, platform_key), reasoning)
     if family == "cursor-size":
         return _apply_reasoning_metadata(_cursor_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
     if family == "display":

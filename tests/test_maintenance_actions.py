@@ -161,6 +161,40 @@ class MaintenanceActionsTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(run.call_count, 5)
 
+    def test_display_layout_fix_executes_guarded_cosmic_command(self):
+        control_path = self._project_control("governance_level: 1\nautonomy_level: A1\naction_runner_enabled: true\n")
+        plan = {
+            "id": "request-display-layout-fix-dvi-i-1",
+            "family": "display-layout-fix",
+            "title": "Apply COSMIC display layout fix to DVI-I-1",
+            "approval_required": True,
+            "execution_enabled": False,
+            "risk": "low",
+            "reversible": True,
+            "requires_privilege": False,
+            "commands": [
+                "cosmic-randr mode DVI-I-1 1920 1080 --refresh 60 --pos-x 3840 --pos-y 456 --scale 1.0 --transform normal",
+                "cosmic-randr list",
+            ],
+            "expected_effect": "Change a user-session display layout.",
+            "rollback": [
+                "cosmic-randr mode DVI-I-1 1920 1080 --refresh 60 --pos-x 3840 --pos-y 0 --scale 1.25 --transform rotate90"
+            ],
+        }
+
+        contract = build_action_contract(plan, project_control_path=control_path)
+
+        with patch(
+            "system_coach_maintenance_manager.maintenance_actions.subprocess.run",
+            return_value=CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr=""),
+        ) as run:
+            result = execute_guarded_action(contract, "")
+
+        self.assertTrue(contract["eligible_for_guarded_execution"])
+        self.assertTrue(contract["execution_enabled"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(run.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

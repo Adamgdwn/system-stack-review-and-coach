@@ -18,6 +18,7 @@ REQUEST_FAMILIES = {
     "cursor-size",
     "display",
     "display-dock",
+    "display-layout-fix",
     "audio-routing",
     "network-dns",
     "package-updates",

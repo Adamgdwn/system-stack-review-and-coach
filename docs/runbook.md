@@ -58,7 +58,7 @@ First response:
 - If a specific tool is reported incorrectly, run its version command directly in a shell and compare the output.
 - If filesystem mapping feels too broad, clear the selected roots and rerun with only the directories you want to inspect.
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
-- If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
+- If an approval-required plan is generated, review the exact command, target, risk, and rollback before pressing Execute. Low-risk user-level plans can execute when the contract allows them; higher-risk or privileged plans stay blocked.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before pressing Execute.
 - If an action contract says execution is blocked, review the gate reasons; privileged, destructive, placeholder, unsupported, or higher-risk plans should remain blocked.
 - If history does not update, check directory permissions or set `SYSTEM_COACH_HISTORY_DIR` to a writable local path.

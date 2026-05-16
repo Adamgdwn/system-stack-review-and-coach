@@ -17,6 +17,7 @@ LOW_RISK_FAMILIES = {
     "cursor-size",
     "display-brightness",
     "display-dock",
+    "display-layout-fix",
     "display-night-light",
     "display-refresh-rate",
     "display-scaling",

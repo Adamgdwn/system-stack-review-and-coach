@@ -16,6 +16,7 @@ from .agents import build_agents
 from .ai_engine import analyze_action_result, answer_question, get_engine_status, reason_about_request
 from .diagnostics import collect_diagnostics
 from .exporting import build_share_text
+from .followup_plans import build_followup_request
 from .maintenance_actions import execute_guarded_action
 from .maintenance_history import format_history, load_history, record_maintenance_report, record_request_plan
 from .maintenance_history import record_action_result
@@ -913,7 +914,15 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
         commands = contract.get("command_preview", plan.get("commands", []))
         executable = contract.get("execution_enabled", False)
-        changes_system = plan.get("family") in {"cursor-size", "display-brightness", "display-night-light", "display-refresh-rate", "display-scaling", "audio-routing"}
+        changes_system = plan.get("family") in {
+            "cursor-size",
+            "display-brightness",
+            "display-night-light",
+            "display-refresh-rate",
+            "display-scaling",
+            "display-layout-fix",
+            "audio-routing",
+        }
         reasoning = plan.get("reasoning_brain", {})
         evidence_scopes = reasoning.get("evidence_scopes", [])
         evidence_count = reasoning.get("evidence_command_count", 0)
@@ -1075,18 +1084,32 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
 
     def _apply_execution_result(self, plan: dict, result: dict, analysis: dict | None) -> bool:
         contract = plan.get("action_contract", {})
+        followup_plan = None
         if result["status"] == "completed":
             analysis = analysis or {}
+            followup_plan = self._prepare_followup_plan_from_execution(plan, result, analysis)
             analysis_label = f"Gemma analysis [{analysis.get('model')}]" if analysis.get("model") else "Gemma analysis"
-            body = "\n".join(
+            body_lines = [
+                "Execution completed.",
+                "",
+                f"Selected plan: {plan['title']}",
+                f"Action id: {contract.get('id', 'unknown')}",
+                "",
+                f"{analysis_label}:",
+                analysis.get("analysis", "No analysis was returned."),
+            ]
+            if followup_plan:
+                body_lines.extend(
+                    [
+                        "",
+                        "Next executable recommendation:",
+                        self._plain_plan_summary(followup_plan),
+                        "",
+                        "Press Execute Current Recommendation to apply this fix, or type a change in Request Desk to modify it.",
+                    ]
+                )
+            body_lines.extend(
                 [
-                    "Execution completed.",
-                    "",
-                    f"Selected plan: {plan['title']}",
-                    f"Action id: {contract.get('id', 'unknown')}",
-                    "",
-                    f"{analysis_label}:",
-                    analysis.get("analysis", "No analysis was returned."),
                     "",
                     "Command output:",
                     result.get("output") or "No command output was returned.",
@@ -1095,8 +1118,13 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     *(f"- {item}" for item in result.get("post_check", [])),
                 ]
             )
-            status = "Execution completed. Gemma analyzed the output."
-            if plan is self.current_request_plan:
+            body = "\n".join(body_lines)
+            status = (
+                "Investigation complete. A concrete fix is ready in Request Desk."
+                if followup_plan
+                else "Execution completed. Gemma analyzed the output."
+            )
+            if plan is self.current_request_plan and not followup_plan:
                 self._set_text(
                     self.request_plan_view,
                     "\n".join(
@@ -1131,6 +1159,42 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self._set_execution_buttons_sensitive(True)
         self._set_status(status)
         return False
+
+    def _prepare_followup_plan_from_execution(self, plan: dict, result: dict, analysis: dict | None) -> dict | None:
+        followup = build_followup_request(plan, result, analysis)
+        if not followup:
+            return None
+
+        os_name, desktop_hint = self._request_environment_context()
+        followup_plan = prepare_request_plan(
+            followup["request_text"],
+            os_name=os_name,
+            distribution_hint=desktop_hint,
+            family_override=followup["family"],
+            reasoning=followup.get("reasoning"),
+        )
+        self.current_request_plan = followup_plan
+        record_request_plan(followup_plan)
+        self._set_text(
+            self.request_plan_view,
+            "\n".join(
+                [
+                    "Investigation complete. I prepared the next fix from the evidence.",
+                    "",
+                    self._plain_plan_summary(followup_plan),
+                ]
+            ),
+        )
+        self._append_request_message(
+            "Request Desk",
+            (
+                "I used the executed evidence to prepare the next concrete fix.\n"
+                f"{followup['summary']}\n"
+                f"Can execute now: {'yes' if followup_plan['execution_enabled'] else 'no'}\n"
+                "Press Execute Current Recommendation to apply it, or type what you want changed and I will revise the plan."
+            ),
+        )
+        return followup_plan
 
     def on_review_findings(self, _button: Gtk.Button | None) -> None:
         self._show_maintenance_findings_dialog()
