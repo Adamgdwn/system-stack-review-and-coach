@@ -52,6 +52,7 @@ First response:
 
 ## Recovery
 
+- Commit and push normal repository updates directly to `main`. Use another branch only when the project owner explicitly asks for it.
 - If the desktop shell does not load, retry from a terminal to surface runtime errors and use browser fallback mode if needed.
 - If desktop launching fails, rerun `bash launchers/install-desktop-entry.sh`.
 - If a specific tool is reported incorrectly, run its version command directly in a shell and compare the output.

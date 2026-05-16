@@ -16,7 +16,7 @@ bash scripts/governance-preflight.sh
 ## Working Rules
 
 - Follow the repository standards by default.
+- Commit and push repository changes directly to `main`; do not create feature branches unless the project owner explicitly asks for one.
 - Do not silently skip required documentation or controls.
 - Record justified deviations as exceptions.
 - Reassess governance when risk, autonomy, data sensitivity, or money movement changes.
-
