@@ -136,6 +136,16 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         notebook.append_page(self.maintenance_page, Gtk.Label(label="Maintenance"))
         self._build_maintenance_page()
 
+        self.request_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.request_page.set_border_width(6)
+        notebook.append_page(self.request_page, Gtk.Label(label="Request Desk"))
+        self._build_request_page()
+
+        self.approval_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.approval_page.set_border_width(6)
+        notebook.append_page(self.approval_page, Gtk.Label(label="Approval Queue"))
+        self._build_approval_page()
+
         self.history_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.history_page.set_border_width(6)
         notebook.append_page(self.history_page, Gtk.Label(label="History"))
@@ -155,6 +165,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.on_run_review(None)
         self.on_run_maintenance(None)
         self.on_refresh_history(None)
+        self._refresh_approval_queue()
 
     def _make_text_view(self) -> Gtk.TextView:
         view = Gtk.TextView()
@@ -186,6 +197,32 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         frame.set_hexpand(True)
         frame.set_vexpand(True)
         return frame
+
+    def _format_plan_details(self, plan: dict) -> str:
+        commands = plan.get("commands", [])
+        manual_steps = plan.get("manual_steps", [])
+        rollback = plan.get("rollback", [])
+        lines = [
+            plan["title"],
+            f"Family: {plan.get('family', plan.get('finding_id', 'maintenance'))}",
+            f"Platform: {plan.get('platform', 'Current system')}",
+            f"Risk: {plan['risk']}",
+            f"Requires privilege: {plan['requires_privilege']}",
+            f"Reversible: {plan['reversible']}",
+            f"Approval required: {plan['approval_required']}",
+            f"Execution enabled: {plan['execution_enabled']}",
+            "Commands:",
+            *[f"- {command}" for command in commands],
+        ]
+        if not commands:
+            lines.append("- No commands prepared yet.")
+        if manual_steps:
+            lines.extend(["Manual steps:", *[f"- {step}" for step in manual_steps]])
+        lines.extend([f"Expected effect: {plan['expected_effect']}"])
+        if rollback:
+            lines.extend(["Rollback:", *[f"- {step}" for step in rollback]])
+        lines.append(f"Approval gate: {plan['approval_prompt']}")
+        return "\n".join(lines)
 
     def _build_scan_page(self) -> None:
         intro = Gtk.Label(
@@ -268,6 +305,61 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             0,
         )
 
+    def _build_request_page(self) -> None:
+        intro = Gtk.Label(
+            label=(
+                "Describe a specific maintenance or settings request. The app prepares an approval-required "
+                "plan with risk, reversibility, privilege, exact commands, and rollback notes."
+            )
+        )
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        self.request_page.pack_start(intro, False, False, 0)
+
+        prompts_row = self._make_wrapping_flow()
+        self.request_page.pack_start(prompts_row, False, False, 0)
+        for prompt in [
+            "My cursor size seems odd. Make it smaller.",
+            "My screen is too bright.",
+            "My audio output is wrong.",
+            "DNS seems broken.",
+            "Repair package updates.",
+            "Review Docker cleanup.",
+            "Review startup apps.",
+            "My computer feels slow.",
+        ]:
+            button = Gtk.Button(label=prompt)
+            button.connect("clicked", self.on_prompt_clicked, prompt)
+            prompts_row.add(button)
+
+        self.request_entry = Gtk.Entry()
+        self.request_entry.set_placeholder_text("Describe a specific request, such as DNS seems broken...")
+        self.request_entry.connect("activate", self.on_prepare_request_plan)
+        self.request_page.pack_start(self.request_entry, False, False, 0)
+
+        action_row = self._make_wrapping_flow()
+        self.request_page.pack_start(action_row, False, False, 0)
+        self.prepare_request_button = Gtk.Button(label="Prepare Approval Plan")
+        self.prepare_request_button.connect("clicked", self.on_prepare_request_plan)
+        action_row.add(self.prepare_request_button)
+
+        self.request_plan_view = self._make_text_view()
+        self.request_page.pack_start(self._frame("Latest Request Plan", self.request_plan_view), True, True, 0)
+
+    def _build_approval_page(self) -> None:
+        intro = Gtk.Label(
+            label=(
+                "Review prepared maintenance and request plans before any future execution support. "
+                "This queue is read-only; execution is disabled at governance level 1."
+            )
+        )
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        self.approval_page.pack_start(intro, False, False, 0)
+
+        self.approval_queue_view = self._make_text_view()
+        self.approval_page.pack_start(self._frame("Scannable Approval Queue", self.approval_queue_view), True, True, 0)
+
     def _build_history_page(self) -> None:
         intro = Gtk.Label(
             label=(
@@ -293,7 +385,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         intro = Gtk.Label(
             label=(
                 "Ask questions about your stack and the app will answer using the local AI engine when available. "
-                "This keeps the coaching flow interactive without sending your environment data away."
+                "Use Request Desk for plan preparation; this page stays focused on chat."
             )
         )
         intro.set_xalign(0)
@@ -308,21 +400,15 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             "How do these tools fit together?",
             "What did the folder scan reveal?",
             "What maintenance issue should I check first?",
-            "My cursor size seems odd. Make it smaller.",
-            "My screen is too bright.",
-            "My audio output is wrong.",
-            "DNS seems broken.",
-            "Review Docker cleanup.",
-            "My computer feels slow.",
         ]:
             button = Gtk.Button(label=prompt)
             button.connect("clicked", self.on_prompt_clicked, prompt)
             prompts_row.add(button)
 
-        self.question_entry = Gtk.Entry()
-        self.question_entry.set_placeholder_text("Ask a question about your environment, tools, or selected roots...")
-        self.question_entry.connect("activate", self.on_ask_coach)
-        self.coach_page.pack_start(self.question_entry, False, False, 0)
+        self.coach_question_entry = Gtk.Entry()
+        self.coach_question_entry.set_placeholder_text("Ask a question about your environment, tools, or selected roots...")
+        self.coach_question_entry.connect("activate", self.on_ask_coach)
+        self.coach_page.pack_start(self.coach_question_entry, False, False, 0)
 
         coach_actions = self._make_wrapping_flow()
         self.coach_page.pack_start(coach_actions, False, False, 0)
@@ -330,19 +416,12 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.ask_button.connect("clicked", self.on_ask_coach)
         coach_actions.add(self.ask_button)
 
-        self.prepare_request_button = Gtk.Button(label="Prepare Approval Plan")
-        self.prepare_request_button.connect("clicked", self.on_prepare_request_plan)
-        coach_actions.add(self.prepare_request_button)
-
         self.refresh_engine_button = Gtk.Button(label="Refresh AI Status")
         self.refresh_engine_button.connect("clicked", self.on_refresh_engine_clicked)
         coach_actions.add(self.refresh_engine_button)
 
         self.coach_view = self._make_text_view()
         self.coach_page.pack_start(self._frame("Coach Conversation", self.coach_view), True, True, 0)
-
-        self.request_plan_view = self._make_text_view()
-        self.coach_page.pack_start(self._frame("Latest Approval Plan", self.request_plan_view), True, True, 0)
 
     def _set_text(self, view: Gtk.TextView, text: str) -> None:
         buffer_ = view.get_buffer()
@@ -575,20 +654,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         if maintenance_report["action_plans"]:
             plan_sections = []
             for plan in maintenance_report["action_plans"]:
-                plan_sections.extend(
-                    [
-                        f"{plan['title']}",
-                        f"Risk: {plan['risk']}",
-                        f"Requires privilege: {plan['requires_privilege']}",
-                        f"Reversible: {plan['reversible']}",
-                        f"Execution enabled: {plan['execution_enabled']}",
-                        "Commands:",
-                        *[f"- {command}" for command in plan["commands"]],
-                        f"Expected effect: {plan['expected_effect']}",
-                        f"Approval gate: {plan['approval_prompt']}",
-                        "",
-                    ]
-                )
+                plan_sections.extend([self._format_plan_details(plan), ""])
             self._set_text(self.maintenance_plans_view, "\n".join(plan_sections).strip())
         else:
             self._set_text(
@@ -604,11 +670,31 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.maintenance_button.set_sensitive(True)
         self.maintenance_page_button.set_sensitive(True)
         self._refresh_history_view()
+        self._refresh_approval_queue()
         return False
 
     def _refresh_history_view(self) -> None:
         self.current_history = load_history()
         self._set_text(self.history_view, format_history(self.current_history))
+
+    def _refresh_approval_queue(self) -> None:
+        queued_plans = []
+        if self.current_maintenance:
+            queued_plans.extend(self.current_maintenance.get("action_plans", []))
+        if self.current_request_plan:
+            queued_plans.append(self.current_request_plan)
+
+        if not queued_plans:
+            self._set_text(
+                self.approval_queue_view,
+                "No approval-required plans are queued yet. Run maintenance diagnostics or prepare a request plan.",
+            )
+            return
+
+        queue_sections = []
+        for index, plan in enumerate(queued_plans, 1):
+            queue_sections.extend([f"Queue item {index}", self._format_plan_details(plan), ""])
+        self._set_text(self.approval_queue_view, "\n".join(queue_sections).strip())
 
     def on_refresh_history(self, _button: Gtk.Button | None) -> None:
         self._refresh_history_view()
@@ -628,17 +714,18 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self._set_status("Local AI engine status refreshed.")
 
     def on_prompt_clicked(self, _button: Gtk.Button | None, prompt: str) -> None:
-        self.question_entry.set_text(prompt)
         if any(
             word in prompt.lower()
             for word in ("cursor", "screen", "audio", "dns", "docker", "slow", "startup", "package", "update")
         ):
+            self.request_entry.set_text(prompt)
             self.on_prepare_request_plan(None)
             return
+        self.coach_question_entry.set_text(prompt)
         self.on_ask_coach(None)
 
     def on_prepare_request_plan(self, _widget: Gtk.Widget | None) -> None:
-        request_text = self.question_entry.get_text().strip()
+        request_text = self.request_entry.get_text().strip()
         if not request_text:
             self._set_status("Type a maintenance request before preparing a plan.")
             return
@@ -659,9 +746,10 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self._append_text(self.coach_view, f"Plan [{plan['platform']}]:\n{formatted}")
         self._set_status("Approval-required plan prepared. No change was executed.")
         self._refresh_history_view()
+        self._refresh_approval_queue()
 
     def on_ask_coach(self, _widget: Gtk.Widget | None) -> None:
-        question = self.question_entry.get_text().strip()
+        question = self.coach_question_entry.get_text().strip()
         if not question:
             self._set_status("Type a question for the coach first.")
             return

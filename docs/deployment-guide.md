@@ -11,10 +11,15 @@ Because this is a local internal tool, staging and prod differ mainly by install
 ## Deployment Steps
 
 1. Validate the code locally with tests and compile checks.
-2. Install or update the desktop launcher with `bash launchers/install-desktop-entry.sh`.
-3. Ensure Ollama is running with at least one supported local model if AI coaching is expected.
-4. Start the application from the launcher or CLI.
-5. Confirm that the native window opens and the review report renders.
+2. Choose the target interface:
+   - Linux native GTK: `PYTHONPATH=src python3 -m stack_review_coach`
+   - Browser fallback: `PYTHONPATH=src python3 -m stack_review_coach --browser`
+   - Windows browser mode: `$env:PYTHONPATH="src"; python -m stack_review_coach --browser`
+3. Install or update the desktop launcher on Linux with `bash launchers/install-desktop-entry.sh` when native mode is desired.
+4. Optionally install in a virtual environment with `python3 -m venv .venv`, `. .venv/bin/activate`, and `python -m pip install -e .` to expose the `stack-review-coach` console command.
+5. Ensure Ollama is running with at least one supported local model if AI coaching is expected.
+6. Start the application from the launcher or CLI.
+7. Confirm that the selected interface opens and the review report renders.
 
 ## Rollback
 
@@ -35,5 +40,13 @@ Because this is a local internal tool, staging and prod differ mainly by install
   - confirm the local AI status line reports Ollama health clearly
   - confirm the environment snapshot and component cards populate
   - confirm scan suggestions appear and an opt-in root scan returns project/config findings
-  - confirm the Ask The Coach tab answers a question through the local model when available
+  - confirm the Request Desk prepares a plan and the Approval Queue shows exact commands with execution disabled
+  - confirm the History view shows the JSONL path and changed-since-last summary
+  - confirm the Chat tab answers a question through the local model when available
   - confirm the command log shows local probe execution
+
+## Platform Guides
+
+- `docs/setup-linux.md`
+- `docs/setup-windows-browser.md`
+- `docs/release-checklist.md`

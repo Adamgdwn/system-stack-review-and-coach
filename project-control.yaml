@@ -26,6 +26,9 @@ controls:
     - docs/roadmap.md
     - docs/deployment-guide.md
     - docs/runbook.md
+    - docs/setup-linux.md
+    - docs/setup-windows-browser.md
+    - docs/release-checklist.md
     - docs/CHANGELOG.md
     - docs/risks/risk-register.md
   machine_enforcement:

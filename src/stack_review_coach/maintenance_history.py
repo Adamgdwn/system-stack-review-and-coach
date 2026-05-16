@@ -161,6 +161,56 @@ def _known_good_lessons(records: list[dict]) -> list[str]:
     return lessons
 
 
+def _latest_maintenance_reports(records: list[dict], limit: int = 2) -> list[dict]:
+    reports = [record for record in records if record.get("kind") == "maintenance_report"]
+    return reports[-limit:]
+
+
+def _finding_signature(finding: dict) -> str:
+    return "|".join(
+        [
+            str(finding.get("id", "unknown")),
+            str(finding.get("severity", "unknown")),
+            str(finding.get("status", "unknown")),
+            str(finding.get("summary", "")),
+        ]
+    )
+
+
+def _changed_since_last(records: list[dict]) -> list[str]:
+    latest = _latest_maintenance_reports(records)
+    if len(latest) < 2:
+        return ["Not enough maintenance history yet to compare diagnostic runs."]
+
+    previous, current = latest
+    previous_payload = previous.get("payload", {})
+    current_payload = current.get("payload", {})
+    previous_findings = {_finding_signature(finding): finding for finding in previous_payload.get("findings", [])}
+    current_findings = {_finding_signature(finding): finding for finding in current_payload.get("findings", [])}
+    previous_keys = set(previous_findings)
+    current_keys = set(current_findings)
+
+    new_findings = [current_findings[key]["title"] for key in sorted(current_keys - previous_keys)]
+    resolved_findings = [previous_findings[key]["title"] for key in sorted(previous_keys - current_keys)]
+    current_summary = current_payload.get("summary", {})
+    previous_summary = previous_payload.get("summary", {})
+
+    changes = [
+        f"Compared {previous.get('recorded_at')} to {current.get('recorded_at')}.",
+        (
+            "Warnings/critical counts changed from "
+            f"{previous_summary.get('severity_counts', {})} to {current_summary.get('severity_counts', {})}."
+        ),
+    ]
+    if new_findings:
+        changes.append(f"New or changed findings: {', '.join(new_findings[:8])}.")
+    if resolved_findings:
+        changes.append(f"Resolved or changed findings: {', '.join(resolved_findings[:8])}.")
+    if not new_findings and not resolved_findings:
+        changes.append("No finding-level changes were detected between the two latest diagnostic snapshots.")
+    return changes
+
+
 def load_history(limit: int = 25, base_dir: Path | None = None) -> dict:
     records = _read_records(base_dir)
     recent = list(reversed(records))[:limit]
@@ -172,6 +222,7 @@ def load_history(limit: int = 25, base_dir: Path | None = None) -> dict:
             "kind_counts": dict(counts),
         },
         "known_good_lessons": _known_good_lessons(records),
+        "changed_since_last": _changed_since_last(records),
         "records": recent,
     }
 
@@ -188,6 +239,9 @@ def format_history(history: dict) -> str:
     lines.extend(f"- {lesson}" for lesson in lessons)
     if not lessons:
         lines.append("- No evidence-backed known-good lessons yet.")
+
+    lines.extend(["", "Changed since last diagnostic run:"])
+    lines.extend(f"- {change}" for change in history.get("changed_since_last", []))
 
     lines.extend(["", "Recent records:"])
     for record in history.get("records", []):

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Completed roadmap Chunk 5 by separating Chat, Request Desk, Approval Queue, and History surfaces and adding changed-since-last diagnostic summaries.
+- Completed roadmap Chunk 6 by adding packaging metadata, Linux and Windows browser setup guides, and a release checklist.
 - Completed roadmap Chunk 3 by expanding the Request Desk to cover display, audio, network/DNS, package/update, Docker cleanup, startup app, and slow-computer triage families.
 - Completed roadmap Chunk 4 by adding local JSONL maintenance history, evidence-backed known-good lessons, and GTK/browser history views.
 - Completed roadmap Chunk 1 by refreshing governance risk documentation, closing stale external governance-path language, and cleaning duplicate architecture wording.

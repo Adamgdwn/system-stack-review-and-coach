@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, expanded approval-required request plans, local maintenance history, browser fallback mode, and local Ollama-backed coaching.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
 
 ## Chunk 1: Governance And Release Hygiene
 
@@ -53,7 +53,7 @@ Status: completed.
 
 ## Chunk 5: Coach And UX Separation
 
-Status: planned.
+Status: completed.
 
 - Separate the combined coach page into clearer surfaces:
   - Chat
@@ -66,7 +66,7 @@ Status: planned.
 
 ## Chunk 6: Packaging And Sharing
 
-Status: planned.
+Status: completed.
 
 - Add setup guides for Ubuntu/Debian, Fedora, Arch, and Windows browser mode.
 - Document Ollama setup and supported model tags.

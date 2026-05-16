@@ -13,6 +13,7 @@ The next product direction is to grow this into a system maintenance and trouble
 - AI coaching is grounded in the generated report and selected map.
 - Maintenance diagnostics run as read-only observations and recommendations.
 - Request Desk plans cover common troubleshooting families but remain approval-required previews.
+- The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
 - Local history records diagnostic snapshots and request-plan previews for later review.
 - Any future repair or cleanup action must require explicit user approval before execution.
 
@@ -29,8 +30,10 @@ In practical terms, the tool may inspect, summarize, and recommend. It may prepa
 3. Optionally scan selected roots to discover projects and configuration files.
 4. Ask the local coach questions about the detected stack or selected roots.
 5. Use the Request Desk for specific approval-required plans, such as changing cursor size, checking DNS, reviewing Docker cleanup, or triaging slow performance.
-6. Review the History view when comparing recent diagnostics or preparing a support handoff.
-7. Copy a share summary when a plain-language environment overview is needed.
+6. Review the Approval Queue before considering any future execution path.
+7. Review the History view when comparing recent diagnostics or preparing a support handoff.
+8. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
+9. Copy a share summary when a plain-language environment overview is needed.
 
 ## Maintenance Direction
 

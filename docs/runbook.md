@@ -33,6 +33,7 @@ First response:
 6. Reduce filesystem scan scope to one or two specific roots if mapping is slow.
 7. Run maintenance diagnostics and review findings before preparing any machine-changing action.
 8. Refresh the History view to confirm diagnostics and request plans are being recorded.
+9. Check the Approval Queue to confirm every prepared plan still says execution is disabled.
 
 ## Dependencies
 
@@ -56,6 +57,7 @@ First response:
 - If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before any future execution support is considered.
 - If history does not update, check directory permissions or set `STACK_COACH_HISTORY_DIR` to a writable local path.
+- If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.
 - If the window feels cramped, resize it; the shell should reflow between side-by-side and stacked layouts automatically.
 

@@ -1,0 +1,65 @@
+# Windows Browser Mode Setup Guide
+
+Native GTK mode is Linux-first. On Windows, use browser mode as the supported baseline.
+
+## Requirements
+
+- Python 3.12+
+- Git for Windows
+- Optional Ollama for local AI coaching
+- A modern browser
+
+## Run From PowerShell
+
+From the repository root:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m stack_review_coach --browser
+```
+
+To start without opening a browser automatically:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m stack_review_coach --browser --no-browser
+```
+
+The server binds to `127.0.0.1` by default and prints the local URL.
+
+## Optional Ollama Setup
+
+Install Ollama for Windows, then pull the preferred local model:
+
+```powershell
+ollama pull gemma4:latest
+ollama list
+```
+
+The app will fall back to another installed local model if the preferred tag is unavailable.
+
+## Local History
+
+Maintenance diagnostics and Request Desk plans are written to `history\maintenance-history.jsonl` by default. To move the archive:
+
+```powershell
+$env:STACK_COACH_HISTORY_DIR = "$env:LOCALAPPDATA\SystemStackReviewAndCoach\history"
+```
+
+## Supported Workflows
+
+- Local review and command log
+- Browser Request Desk
+- Approval Queue
+- Maintenance History
+- Coach Chat through local Ollama when available
+- Read-only Windows maintenance probes when tools such as `wevtutil`, `route`, and `winget` are available
+
+## Validation
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m unittest discover -s tests -p "test_*.py"
+python -m compileall src tests
+python -m stack_review_coach --browser --no-browser
+```

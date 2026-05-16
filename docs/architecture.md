@@ -2,7 +2,7 @@
 
 ## Summary
 
-System Stack Review and Coach is a local-only educational and maintenance-coaching application that helps users understand the tools installed on their machine and inspect basic system health. It runs as a native GTK desktop application by default, executes local probe agents to inspect the environment, optionally maps user-approved filesystem roots, runs read-only maintenance diagnostics, and renders the results in a desktop shell. It can also use a local Ollama-served model to answer interactive questions about the detected environment and diagnostics. A browser-hosted mode remains available as a fallback.
+System Stack Review and Coach is a local-only educational and maintenance-coaching application that helps users understand the tools installed on their machine and inspect basic system health. It runs as a native GTK desktop application by default, executes local probe agents to inspect the environment, optionally maps user-approved filesystem roots, runs read-only maintenance diagnostics, and renders the results in separated review, Request Desk, Approval Queue, History, and Chat surfaces. It can also use a local Ollama-served model to answer interactive questions about the detected environment and diagnostics. A browser-hosted mode remains available as a fallback.
 
 ## Components
 
@@ -19,6 +19,7 @@ System Stack Review and Coach is a local-only educational and maintenance-coachi
 - `src/stack_review_coach/reporting.py`: Converts raw probe results into learner-friendly summaries, recommendations, and stack pattern matches.
 - `src/stack_review_coach/web/`: Browser UI assets for the interactive learning experience.
 - `launchers/`: Shell scripts for local execution and desktop installation.
+- `pyproject.toml`: Packaging metadata and console entry point.
 
 ## Data Flow
 
@@ -30,7 +31,7 @@ System Stack Review and Coach is a local-only educational and maintenance-coachi
 6. If the user runs maintenance diagnostics, read-only checks collect system-health evidence and convert it into findings and approval-required plan previews.
 7. Maintenance reports and Request Desk plans are appended to local history for later review.
 8. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
-9. The desktop shell renders the final report, history, and AI coaching conversation for exploration and sharing.
+9. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
 
 The desktop shell adapts its layout based on window size so smaller screens can stack major panels vertically while larger screens stay side-by-side.
 

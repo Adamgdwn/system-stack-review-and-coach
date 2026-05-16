@@ -24,6 +24,7 @@ const prepareRequestButton = document.querySelector("#prepareRequestButton");
 const requestPlan = document.querySelector("#requestPlan");
 const refreshHistoryButton = document.querySelector("#refreshHistoryButton");
 const historyPath = document.querySelector("#historyPath");
+const historyChanges = document.querySelector("#historyChanges");
 const historyLessons = document.querySelector("#historyLessons");
 const historyRecords = document.querySelector("#historyRecords");
 const coachQuestionInput = document.querySelector("#coachQuestionInput");
@@ -286,57 +287,84 @@ function renderMaintenance(report) {
     maintenanceFindings.appendChild(card);
   });
 
+  renderApprovalQueue();
+}
+
+function planDetailsHtml(plan) {
+  const commands = plan.commands?.length
+    ? plan.commands.map((command) => `<li><code>${command}</code></li>`).join("")
+    : "<li>No commands prepared yet.</li>";
+  const manualSteps = plan.manual_steps?.length
+    ? `<p><strong>Manual steps</strong></p><ul class="text-list compact-list">${plan.manual_steps
+        .map((step) => `<li>${step}</li>`)
+        .join("")}</ul>`
+    : "";
+  const rollback = plan.rollback?.length
+    ? `<p><strong>Rollback</strong></p><ul class="text-list compact-list">${plan.rollback
+        .map((step) => `<li>${step}</li>`)
+        .join("")}</ul>`
+    : "";
+  return `
+    <p>${plan.summary || plan.expected_effect}</p>
+    <p>Risk: ${plan.risk} · Requires privilege: ${plan.requires_privilege ? "yes" : "no"} · Reversible: ${plan.reversible ? "yes" : "no"} · Approval required: ${plan.approval_required ? "yes" : "no"} · Execution enabled: ${plan.execution_enabled ? "yes" : "no"}</p>
+    <p><strong>Commands</strong></p>
+    <ul class="text-list compact-list">${commands}</ul>
+    ${manualSteps}
+    <p><strong>Expected effect</strong></p>
+    <p>${plan.expected_effect}</p>
+    ${rollback}
+    <p>${plan.approval_prompt}</p>
+  `;
+}
+
+function renderApprovalQueue() {
   maintenancePlans.innerHTML = "";
-  if (!report.action_plans.length) {
-    maintenancePlans.innerHTML = `<article class="stack-card"><h3>No approval queue yet</h3><p>The current diagnostics did not prepare a maintenance plan.</p></article>`;
+  const queuedPlans = [
+    ...(currentMaintenance?.action_plans || []),
+    ...(currentRequestPlan ? [currentRequestPlan] : []),
+  ];
+  if (!queuedPlans.length) {
+    maintenancePlans.innerHTML = `<article class="stack-card"><h3>No approval queue yet</h3><p>Run diagnostics or prepare a Request Desk plan to populate this queue.</p></article>`;
     return;
   }
 
-  report.action_plans.forEach((plan) => {
+  queuedPlans.forEach((plan, index) => {
     const card = document.createElement("article");
     card.className = "stack-card";
-    const commands = plan.commands.map((command) => `<li><code>${command}</code></li>`).join("");
     card.innerHTML = `
       <div class="stack-topline">
-        <h3>${plan.title}</h3>
+        <h3>${index + 1}. ${plan.title}</h3>
         <span class="pill">${plan.risk} risk</span>
       </div>
-      <p>${plan.expected_effect}</p>
-      <p>Requires privilege: ${plan.requires_privilege ? "yes" : "no"} · Reversible: ${plan.reversible ? "yes" : "no"} · Execution enabled: ${plan.execution_enabled ? "yes" : "no"}</p>
-      <ul class="text-list compact-list">${commands}</ul>
-      <p>${plan.approval_prompt}</p>
+      ${planDetailsHtml(plan)}
     `;
     maintenancePlans.appendChild(card);
   });
 }
 
 function renderRequestPlan(plan) {
-  const commands = plan.commands.length
-    ? plan.commands.map((command) => `<li><code>${command}</code></li>`).join("")
-    : "<li>No commands prepared yet.</li>";
-  const manualSteps = plan.manual_steps.map((step) => `<li>${step}</li>`).join("");
-  const rollback = plan.rollback.map((step) => `<li>${step}</li>`).join("");
   requestPlan.innerHTML = `
     <article class="stack-card">
       <div class="stack-topline">
         <h3>${plan.title}</h3>
         <span class="pill">${plan.platform}</span>
       </div>
-      <p>${plan.summary}</p>
-      <p>Risk: ${plan.risk} · Requires privilege: ${plan.requires_privilege ? "yes" : "no"} · Reversible: ${plan.reversible ? "yes" : "no"} · Execution enabled: ${plan.execution_enabled ? "yes" : "no"}</p>
-      <p><strong>Commands</strong></p>
-      <ul class="text-list compact-list">${commands}</ul>
-      <p><strong>Manual steps</strong></p>
-      <ul class="text-list compact-list">${manualSteps}</ul>
-      <p><strong>Rollback</strong></p>
-      <ul class="text-list compact-list">${rollback}</ul>
-      <p>${plan.approval_prompt}</p>
+      ${planDetailsHtml(plan)}
     </article>
   `;
+  renderApprovalQueue();
 }
 
 function renderHistory(history) {
   historyPath.textContent = `History path: ${history.path}`;
+  historyChanges.innerHTML = "";
+  (history.changed_since_last || []).forEach((change) => {
+    const card = document.createElement("article");
+    card.className = "stack-card";
+    card.innerHTML = `<h3>Changed since last run</h3><p>${change}</p>`;
+    historyChanges.appendChild(card);
+  });
+
   historyLessons.innerHTML = "";
   if (!history.known_good_lessons.length) {
     historyLessons.innerHTML = `<article class="stack-card"><h3>No known-good lessons yet</h3><p>Clean diagnostic snapshots will appear here only when the evidence supports them.</p></article>`;

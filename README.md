@@ -32,6 +32,15 @@ Run locally in the native desktop shell:
 PYTHONPATH=src python3 -m stack_review_coach
 ```
 
+Install in editable mode if you want the console entry point:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
+stack-review-coach
+```
+
 Use the launcher script:
 
 ```bash
@@ -72,7 +81,9 @@ python3 -m compileall src tests
 - Read-only maintenance diagnostics inspect system health signals such as disk pressure, memory, CPU load, failed services, recent critical logs, network basics, and package-manager health across Linux and Windows where platform tools are available.
 - Maintenance plans are prepared as approval-required previews with commands, expected effects, risk, reversibility, and privilege flags.
 - The Request Desk turns specific requests into platform-aware approval-required plans for cursor/pointer size, display settings, audio routing, network/DNS issues, package/update repair, Docker cleanup review, startup app review, and slow-computer triage.
+- The Approval Queue makes prepared plans scannable before any future execution support exists.
 - Local maintenance history records diagnostic snapshots and request-plan previews under `history/maintenance-history.jsonl` by default.
+- History includes a “changed since last diagnostic run” summary when at least two diagnostic snapshots are available.
 - Browser fallback mode includes both the Request Desk and local Coach Chat so Windows users can use the supervised workflow without GTK.
 - The app can use a local Ollama model as its coaching engine to answer questions about the detected stack and mapped roots.
 - The reporting layer turns raw findings into learner-friendly summaries, compatibility notes, and next-step coaching.
@@ -95,6 +106,9 @@ python3 -m compileall src tests
 - `docs/deployment-guide.md`
 - `docs/runbook.md`
 - `docs/maintenance-manager-plan.md`
+- `docs/setup-linux.md`
+- `docs/setup-windows-browser.md`
+- `docs/release-checklist.md`
 - `docs/CHANGELOG.md`
 - `docs/risks/risk-register.md`
 - `docs/adrs/0001-local-web-gui.md`
