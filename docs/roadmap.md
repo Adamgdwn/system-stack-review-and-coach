@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, approval-required plan previews, a Request Desk, browser fallback mode, and local Ollama-backed coaching.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, expanded approval-required request plans, local maintenance history, browser fallback mode, and local Ollama-backed coaching.
 
 ## Chunk 1: Governance And Release Hygiene
 
@@ -27,7 +27,7 @@ Status: completed.
 
 ## Chunk 3: Request Desk Expansion
 
-Status: planned.
+Status: completed.
 
 - Expand request families beyond cursor/pointer size:
   - display scaling, brightness, night light, and refresh rate
@@ -43,7 +43,7 @@ Status: planned.
 
 ## Chunk 4: Maintenance History And Evidence
 
-Status: planned.
+Status: completed.
 
 - Add a local history/archive module for diagnostic snapshots, request plans, approval decisions, and future action results.
 - Store records under a clear local-only directory such as `history/` or user-selected app data.

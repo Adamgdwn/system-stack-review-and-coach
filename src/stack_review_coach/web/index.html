@@ -139,7 +139,7 @@
             <textarea
               id="requestInput"
               rows="3"
-              placeholder="My cursor size seems odd. Make it smaller."
+              placeholder="My cursor size seems odd. Make it smaller.&#10;DNS seems broken.&#10;Review Docker cleanup."
             ></textarea>
             <div class="scan-actions">
               <button id="prepareRequestButton">Prepare Approval Plan</button>
@@ -147,6 +147,19 @@
             </div>
             <div id="requestPlan" class="stack-list"></div>
           </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Maintenance History</h2>
+            <p>Local diagnostic snapshots and request-plan records for troubleshooting handoff.</p>
+          </div>
+          <div class="scan-actions">
+            <button id="refreshHistoryButton">Refresh History</button>
+            <span id="historyPath" class="subtle">History is stored locally.</span>
+          </div>
+          <div id="historyLessons" class="stack-list"></div>
+          <div id="historyRecords" class="command-log"></div>
         </section>
 
         <section class="panel">

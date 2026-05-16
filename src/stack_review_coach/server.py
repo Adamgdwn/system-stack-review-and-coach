@@ -13,6 +13,7 @@ import webbrowser
 from .agents import build_agents
 from .ai_engine import answer_question
 from .diagnostics import collect_diagnostics
+from .maintenance_history import load_history, record_maintenance_report, record_request_plan
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
 from .request_plans import prepare_request_plan
@@ -28,7 +29,9 @@ def build_report() -> dict:
 
 
 def build_maintenance_report() -> dict:
-    return generate_maintenance_report(collect_diagnostics())
+    report = generate_maintenance_report(collect_diagnostics())
+    record_maintenance_report(report)
+    return report
 
 
 class StackCoachHandler(SimpleHTTPRequestHandler):
@@ -54,6 +57,9 @@ class StackCoachHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/maintenance":
             self._send_json(build_maintenance_report())
             return
+        if self.path == "/api/history":
+            self._send_json(load_history())
+            return
         if self.path == "/health":
             self.send_response(HTTPStatus.OK)
             self.end_headers()
@@ -78,13 +84,13 @@ class StackCoachHandler(SimpleHTTPRequestHandler):
             request_text = str(payload.get("request", ""))
             os_name = payload.get("os_name")
             desktop_hint = payload.get("desktop_hint")
-            self._send_json(
-                prepare_request_plan(
-                    request_text,
-                    os_name=str(os_name) if os_name else None,
-                    distribution_hint=str(desktop_hint) if desktop_hint else None,
-                )
+            plan = prepare_request_plan(
+                request_text,
+                os_name=str(os_name) if os_name else None,
+                distribution_hint=str(desktop_hint) if desktop_hint else None,
             )
+            record_request_plan(plan)
+            self._send_json(plan)
             return
 
         if self.path == "/api/ask":

@@ -10,12 +10,106 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
+def _platform_key(os_name: str | None) -> str:
+    normalized = (os_name or "").strip().lower()
+    if normalized.startswith("win"):
+        return "windows"
+    if normalized == "linux":
+        return "linux"
+    return "unknown"
+
+
+def _platform_label(platform_key: str, fallback: str) -> str:
+    if platform_key == "windows":
+        return "Windows"
+    if platform_key == "linux":
+        return "Linux"
+    return fallback or "Unknown"
+
+
+def _has_any(text: str, words: tuple[str, ...]) -> bool:
+    return any(word in text for word in words)
+
+
 def _cursor_direction(text: str) -> str:
-    if any(word in text for word in ("smaller", "small", "shrink", "decrease", "reduce", "lower")):
+    if _has_any(text, ("smaller", "small", "shrink", "decrease", "reduce", "lower")):
         return "smaller"
-    if any(word in text for word in ("bigger", "larger", "large", "increase", "grow", "huge")):
+    if _has_any(text, ("bigger", "larger", "large", "increase", "grow", "huge")):
         return "larger"
     return "adjust"
+
+
+def _request_plan(
+    *,
+    plan_id: str,
+    family: str,
+    title: str,
+    request_text: str,
+    platform_name: str,
+    risk: str,
+    reversible: bool,
+    requires_privilege: bool,
+    summary: str,
+    commands: list[str],
+    manual_steps: list[str],
+    expected_effect: str,
+    rollback: list[str],
+    approval_prompt: str,
+) -> dict:
+    return {
+        "id": plan_id,
+        "family": family,
+        "title": title,
+        "request": request_text,
+        "platform": platform_name,
+        "approval_required": True,
+        "execution_enabled": False,
+        "risk": risk,
+        "reversible": reversible,
+        "requires_privilege": requires_privilege,
+        "summary": summary,
+        "commands": commands,
+        "manual_steps": manual_steps,
+        "expected_effect": expected_effect,
+        "rollback": rollback,
+        "approval_prompt": approval_prompt,
+    }
+
+
+def _triage_plan(request_text: str, os_name: str, family: str = "unknown") -> dict:
+    return _request_plan(
+        plan_id="request-needs-triage" if family == "unknown" else f"request-{family}-triage",
+        family=family,
+        title="Request needs troubleshooting triage",
+        request_text=request_text,
+        platform_name=os_name,
+        risk="unknown",
+        reversible=False,
+        requires_privilege=False,
+        summary=(
+            "This request needs a narrower troubleshooting path before commands are useful. "
+            "The assistant should clarify the target setting, symptom, platform, and rollback expectation."
+        ),
+        commands=[],
+        manual_steps=[
+            "Clarify the exact symptom and target application, device, service, or setting.",
+            "Collect read-only diagnostics relevant to that symptom.",
+            "Prepare a concrete plan with commands, risk, reversibility, and approval requirements.",
+        ],
+        expected_effect="Turn an open-ended request into a safe, reviewable maintenance plan.",
+        rollback=["No change is proposed yet, so no rollback is required."],
+        approval_prompt="Do not execute anything until this request has a concrete plan.",
+    )
+
+
+def _unsupported_platform_plan(request_text: str, os_name: str, family: str) -> dict:
+    plan = _triage_plan(request_text, os_name, family)
+    plan["summary"] = (
+        f"The request matched the {family} family, but this operating system is not supported by "
+        "a built-in command plan yet. Keep this as a manual triage record until platform support exists."
+    )
+    plan["expected_effect"] = "Avoid guessing at machine-specific maintenance commands on an unsupported platform."
+    return plan
 
 
 def _linux_desktop_family(distribution_hint: str | None) -> str:
@@ -43,14 +137,9 @@ def _linux_cursor_commands(target_size: str, desktop_family: str) -> list[str]:
             f"xfconf-query -c xsettings -p /Gtk/CursorThemeSize -s {target_size}",
         ]
     if desktop_family == "kde":
-        return [
-            "kcmshell6 cursors",
-            "kcmshell5 cursors",
-        ]
+        return ["kcmshell6 cursors", "kcmshell5 cursors"]
     if desktop_family == "cosmic":
-        return [
-            "cosmic-settings",
-        ]
+        return ["cosmic-settings"]
     return [
         "gsettings get org.gnome.desktop.interface cursor-size",
         "xfconf-query -c xsettings -p /Gtk/CursorThemeSize",
@@ -89,108 +178,396 @@ def _linux_cursor_manual_steps(desktop_family: str) -> list[str]:
     ]
 
 
-def _linux_cursor_plan(request_text: str, distribution_hint: str | None = None) -> dict:
+def _cursor_plan(request_text: str, platform_name: str, platform_key: str, distribution_hint: str | None) -> dict:
     direction = _cursor_direction(_normalize(request_text))
     target_size = "24" if direction == "smaller" else "48" if direction == "larger" else "<size>"
-    desktop_family = _linux_desktop_family(distribution_hint)
-    hint_note = f" Desktop hint: {distribution_hint}." if distribution_hint else " Desktop hint: unknown."
-    return {
-        "id": "request-cursor-size-linux",
-        "title": f"Adjust Linux cursor size ({direction})",
-        "request": request_text,
-        "platform": "Linux",
-        "approval_required": True,
-        "execution_enabled": False,
-        "risk": "low",
-        "reversible": True,
-        "requires_privilege": False,
-        "summary": (
-            "Prepare a user-session cursor size change. The plan uses the detected desktop session "
-            "when possible and does not modify system-wide files." + hint_note
-        ),
-        "commands": _linux_cursor_commands(target_size, desktop_family),
-        "manual_steps": _linux_cursor_manual_steps(desktop_family),
-        "expected_effect": "Change only the current user's pointer size setting.",
-        "rollback": [
-            "Set the cursor size back to the previous value recorded by the first get command.",
-            "If the command does not apply to this desktop environment, revert through the desktop settings UI.",
-        ],
-        "approval_prompt": "Approve only after confirming the desktop environment and target cursor size.",
-    }
+    if platform_key == "linux":
+        desktop_family = _linux_desktop_family(distribution_hint)
+        hint_note = f" Desktop hint: {distribution_hint}." if distribution_hint else " Desktop hint: unknown."
+        return _request_plan(
+            plan_id="request-cursor-size-linux",
+            family="cursor-size",
+            title=f"Adjust Linux cursor size ({direction})",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary=(
+                "Prepare a user-session cursor size change. The plan uses the detected desktop session "
+                "when possible and does not modify system-wide files." + hint_note
+            ),
+            commands=_linux_cursor_commands(target_size, desktop_family),
+            manual_steps=_linux_cursor_manual_steps(desktop_family),
+            expected_effect="Change only the current user's pointer size setting.",
+            rollback=[
+                "Set the cursor size back to the previous value recorded by the first get command.",
+                "If the command does not apply to this desktop environment, revert through the desktop settings UI.",
+            ],
+            approval_prompt="Approve only after confirming the desktop environment and target cursor size.",
+        )
+
+    if platform_key == "windows":
+        return _request_plan(
+            plan_id="request-cursor-size-windows",
+            family="cursor-size",
+            title=f"Adjust Windows cursor size ({direction})",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary="Prepare a current-user pointer size change through Windows Accessibility settings.",
+            commands=[
+                "start ms-settings:easeofaccess-mousepointer",
+                'powershell -NoProfile -Command "Start-Process ms-settings:easeofaccess-mousepointer"',
+            ],
+            manual_steps=[
+                "Open Settings > Accessibility > Mouse pointer and touch.",
+                "Move the Size slider smaller or larger, then test it in normal windows.",
+                "Use the same settings page to restore the previous size if the result feels wrong.",
+            ],
+            expected_effect="Open the Windows pointer settings page so the user can adjust the current user's cursor size.",
+            rollback=["Return to the same settings page and move the Size slider back to the prior value."],
+            approval_prompt="Approve opening the settings page only when you are ready to adjust the pointer size manually.",
+        )
+
+    return _unsupported_platform_plan(request_text, platform_name, "cursor-size")
 
 
-def _windows_cursor_plan(request_text: str) -> dict:
-    direction = _cursor_direction(_normalize(request_text))
-    return {
-        "id": "request-cursor-size-windows",
-        "title": f"Adjust Windows cursor size ({direction})",
-        "request": request_text,
-        "platform": "Windows",
-        "approval_required": True,
-        "execution_enabled": False,
-        "risk": "low",
-        "reversible": True,
-        "requires_privilege": False,
-        "summary": "Prepare a current-user pointer size change through Windows Accessibility settings.",
-        "commands": [
-            "start ms-settings:easeofaccess-mousepointer",
-            "powershell -NoProfile -Command \"Start-Process ms-settings:easeofaccess-mousepointer\"",
-        ],
-        "manual_steps": [
-            "Open Settings > Accessibility > Mouse pointer and touch.",
-            "Move the Size slider smaller or larger, then test it in normal windows.",
-            "Use the same settings page to restore the previous size if the result feels wrong.",
-        ],
-        "expected_effect": "Open the Windows pointer settings page so the user can adjust the current user's cursor size.",
-        "rollback": ["Return to the same settings page and move the Size slider back to the prior value."],
-        "approval_prompt": "Approve opening the settings page only when you are ready to adjust the pointer size manually.",
-    }
+def _display_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    normalized = _normalize(request_text)
+    if _has_any(normalized, ("brightness", "dim", "brighter")):
+        title = "Plan a brightness adjustment"
+        family = "display-brightness"
+        linux_commands = ["brightnessctl info", "ls /sys/class/backlight"]
+        windows_commands = [
+            "start ms-settings:display",
+            'powershell -NoProfile -Command "Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness"',
+        ]
+        expected = "Inspect current brightness controls before changing the active display brightness."
+    elif _has_any(normalized, ("night light", "nightlight", "blue light", "warm")):
+        title = "Plan a night light adjustment"
+        family = "display-night-light"
+        linux_commands = [
+            "gsettings get org.gnome.settings-daemon.plugins.color night-light-enabled",
+            "gsettings get org.gnome.settings-daemon.plugins.color night-light-temperature",
+        ]
+        windows_commands = ["start ms-settings:nightlight"]
+        expected = "Open or inspect night light settings before changing color temperature or schedule."
+    elif _has_any(normalized, ("refresh", "hz", "hertz")):
+        title = "Plan a refresh-rate adjustment"
+        family = "display-refresh-rate"
+        linux_commands = ["xrandr --query", "kscreen-doctor -o"]
+        windows_commands = [
+            "start ms-settings:display-advanced",
+            'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,CurrentRefreshRate"',
+        ]
+        expected = "Inspect supported display modes before changing refresh rate."
+    else:
+        title = "Plan a display scaling adjustment"
+        family = "display-scaling"
+        linux_commands = ["xrandr --query", "gsettings get org.gnome.desktop.interface scaling-factor"]
+        windows_commands = [
+            "start ms-settings:display",
+            'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,CurrentHorizontalResolution,CurrentVerticalResolution"',
+        ]
+        expected = "Inspect current display settings before changing scale or resolution."
+
+    if platform_key == "linux":
+        return _request_plan(
+            plan_id=f"request-{family}-linux",
+            family=family,
+            title=f"{title} on Linux",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary="Prepare a user-session display change and collect current mode evidence first.",
+            commands=linux_commands,
+            manual_steps=[
+                "Confirm the active monitor and current display mode.",
+                "Change one display setting at a time from the desktop settings panel.",
+                "Wait for the desktop confirmation prompt before accepting the new mode.",
+            ],
+            expected_effect=expected,
+            rollback=["Use the desktop display settings panel to restore the previous value."],
+            approval_prompt="Approve only after confirming the target monitor and previous setting.",
+        )
+
+    if platform_key == "windows":
+        return _request_plan(
+            plan_id=f"request-{family}-windows",
+            family=family,
+            title=f"{title} on Windows",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary="Prepare a current-user display settings change through Windows Settings.",
+            commands=windows_commands,
+            manual_steps=[
+                "Open Windows display settings for the active monitor.",
+                "Record the current scale, brightness, night light, or refresh-rate value.",
+                "Apply one change at a time and use the confirmation prompt to revert if needed.",
+            ],
+            expected_effect=expected,
+            rollback=["Return to the same Windows Settings page and restore the previous value."],
+            approval_prompt="Approve only after confirming the target monitor and previous setting.",
+        )
+
+    return _unsupported_platform_plan(request_text, platform_name, family)
 
 
-def _unsupported_request_plan(request_text: str, os_name: str) -> dict:
-    return {
-        "id": "request-needs-triage",
-        "title": "Request needs troubleshooting triage",
-        "request": request_text,
-        "platform": os_name,
-        "approval_required": True,
-        "execution_enabled": False,
-        "risk": "unknown",
-        "reversible": False,
-        "requires_privilege": False,
-        "summary": "This request does not match a built-in plan yet. The assistant should ask clarifying questions and prepare a narrow plan before execution.",
-        "commands": [],
-        "manual_steps": [
-            "Clarify the exact symptom and target application or setting.",
-            "Collect read-only diagnostics relevant to that symptom.",
-            "Prepare a concrete plan with commands, risk, reversibility, and approval requirements.",
+def _audio_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    input_request = _has_any(_normalize(request_text), ("microphone", "mic", "input"))
+    target = "input" if input_request else "output"
+    if platform_key == "linux":
+        commands = ["pactl info", "pactl list short sinks", "pactl list short sources"]
+    elif platform_key == "windows":
+        commands = ["start ms-settings:sound", 'powershell -NoProfile -Command "Get-CimInstance Win32_SoundDevice"']
+    else:
+        return _unsupported_platform_plan(request_text, platform_name, "audio-routing")
+
+    return _request_plan(
+        plan_id=f"request-audio-{target}-{platform_key}",
+        family="audio-routing",
+        title=f"Plan an audio {target} change",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="low",
+        reversible=True,
+        requires_privilege=False,
+        summary="Prepare a user-session audio device or volume change after identifying active devices.",
+        commands=commands,
+        manual_steps=[
+            f"Identify the current default audio {target} device.",
+            "Test the target device in the operating-system sound settings.",
+            "Change only one device or volume setting at a time.",
         ],
-        "expected_effect": "Turn an open-ended request into a safe, reviewable maintenance plan.",
-        "rollback": ["No change is proposed yet, so no rollback is required."],
-        "approval_prompt": "Do not execute anything until this request has a concrete plan.",
-    }
+        expected_effect=f"Switch or tune the current user's audio {target} path without changing system-wide policy.",
+        rollback=["Return to the sound settings page and select the previous device or volume level."],
+        approval_prompt=f"Approve only after confirming the exact audio {target} device and previous value.",
+    )
+
+
+def _network_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    if platform_key == "linux":
+        commands = ["ip route", "resolvectl status", "nmcli device status", "ping -c 4 1.1.1.1"]
+    elif platform_key == "windows":
+        commands = [
+            "route print",
+            "ipconfig /all",
+            'powershell -NoProfile -Command "Resolve-DnsName example.com"',
+            'powershell -NoProfile -Command "Test-NetConnection 1.1.1.1"',
+        ]
+    else:
+        return _unsupported_platform_plan(request_text, platform_name, "network-dns")
+
+    return _request_plan(
+        plan_id=f"request-network-dns-{platform_key}",
+        family="network-dns",
+        title="Plan network and DNS troubleshooting",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="low",
+        reversible=True,
+        requires_privilege=False,
+        summary="Collect route, adapter, and DNS evidence before preparing any network configuration change.",
+        commands=commands,
+        manual_steps=[
+            "Confirm whether the issue affects all apps or one app.",
+            "Check route, DNS, adapter, VPN, and captive portal state.",
+            "Prepare a separate approval plan before changing DNS servers, routes, adapters, or VPN settings.",
+        ],
+        expected_effect="Separate connectivity problems from DNS resolver problems before any fix is proposed.",
+        rollback=["No setting change is proposed yet; rollback depends on the later approved network change."],
+        approval_prompt="Approve only evidence collection until one adapter and one concrete network setting are identified.",
+    )
+
+
+def _package_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    if platform_key == "linux":
+        commands = ["apt-get check", "dnf check", "pacman -Dk"]
+    elif platform_key == "windows":
+        commands = ["winget --info", "winget source list", "choco --version"]
+    else:
+        return _unsupported_platform_plan(request_text, platform_name, "package-updates")
+
+    return _request_plan(
+        plan_id=f"request-package-updates-{platform_key}",
+        family="package-updates",
+        title="Plan package and update repair",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="medium",
+        reversible=False,
+        requires_privilege=True,
+        summary="Review package manager health before approving install, remove, repair, upgrade, or source reset commands.",
+        commands=commands,
+        manual_steps=[
+            "Identify the active package manager before running manager-specific commands.",
+            "Review package database or source health output.",
+            "Prepare a named package/source repair plan before any modifying command.",
+        ],
+        expected_effect="Identify package-manager health issues without modifying installed packages.",
+        rollback=["No package change is proposed yet; rollback must be defined with the later approved repair command."],
+        approval_prompt="Approve package changes only when exact packages, sources, and repair commands are visible.",
+    )
+
+
+def _docker_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    if platform_key not in {"linux", "windows"}:
+        return _unsupported_platform_plan(request_text, platform_name, "docker-cleanup")
+
+    return _request_plan(
+        plan_id=f"request-docker-cleanup-{platform_key}",
+        family="docker-cleanup",
+        title="Plan Docker cleanup review",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="medium",
+        reversible=False,
+        requires_privilege=False,
+        summary="Inspect Docker disk usage and unused resources before approving any prune or delete command.",
+        commands=["docker system df", "docker ps -a", "docker images", "docker volume ls"],
+        manual_steps=[
+            "Confirm whether stopped containers, unused images, build cache, or volumes are consuming space.",
+            "Identify project-critical containers and volumes before cleanup.",
+            "Prepare a separate approval plan for a specific prune/delete command.",
+        ],
+        expected_effect="Identify Docker cleanup candidates without deleting containers, images, caches, or volumes.",
+        rollback=["Docker cleanup can be irreversible; define restore steps before approving any delete command."],
+        approval_prompt="Approve cleanup only after naming the exact Docker resource class and preserving needed volumes.",
+    )
+
+
+def _startup_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    if platform_key == "linux":
+        commands = ["systemctl --user list-unit-files --state=enabled", "ls ~/.config/autostart", "crontab -l"]
+    elif platform_key == "windows":
+        commands = [
+            "start ms-settings:startupapps",
+            'powershell -NoProfile -Command "Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location"',
+        ]
+    else:
+        return _unsupported_platform_plan(request_text, platform_name, "startup-apps")
+
+    return _request_plan(
+        plan_id=f"request-startup-apps-{platform_key}",
+        family="startup-apps",
+        title="Plan startup app review",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="medium",
+        reversible=True,
+        requires_privilege=False,
+        summary="List user-session startup entries before disabling anything.",
+        commands=commands,
+        manual_steps=[
+            "Identify startup entries that are user-facing and nonessential.",
+            "Disable one startup item at a time and reboot or sign out to confirm behavior.",
+            "Keep security, sync, input, and driver utilities enabled unless their purpose is understood.",
+        ],
+        expected_effect="Identify candidate startup entries without disabling them.",
+        rollback=["Re-enable the same startup item from the startup settings panel or user service list."],
+        approval_prompt="Approve disabling only one named startup item at a time.",
+    )
+
+
+def _slow_computer_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
+    if platform_key == "linux":
+        commands = ["uptime", "free -h", "df -h", "ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -20"]
+    elif platform_key == "windows":
+        commands = [
+            'powershell -NoProfile -Command "Get-Process | Sort-Object CPU -Descending | Select-Object -First 15 Name,CPU,WorkingSet"',
+            'powershell -NoProfile -Command "Get-CimInstance Win32_OperatingSystem | Select-Object FreePhysicalMemory,TotalVisibleMemorySize"',
+            'powershell -NoProfile -Command "Get-PSDrive -PSProvider FileSystem"',
+        ]
+    else:
+        return _unsupported_platform_plan(request_text, platform_name, "slow-computer")
+
+    return _request_plan(
+        plan_id=f"request-slow-computer-{platform_key}",
+        family="slow-computer",
+        title="Plan slow-computer triage",
+        request_text=request_text,
+        platform_name=platform_name,
+        risk="low",
+        reversible=True,
+        requires_privilege=False,
+        summary="Collect CPU, memory, disk, and process evidence before stopping apps, changing startup, or cleaning storage.",
+        commands=commands,
+        manual_steps=[
+            "Capture whether the slowdown is constant, startup-only, app-specific, or network-related.",
+            "Compare CPU, memory, disk space, and top process evidence.",
+            "Turn the strongest evidence into a narrower approval-required plan.",
+        ],
+        expected_effect="Find the likely slowdown category without stopping processes or changing settings.",
+        rollback=["No change is proposed yet; rollback depends on the later approved narrow plan."],
+        approval_prompt="Approve only evidence collection until the slowdown has a clear category and target.",
+    )
+
+
+def _family_for_request(normalized: str) -> str:
+    if _has_any(normalized, ("cursor", "pointer")):
+        return "cursor-size"
+    if _has_any(normalized, ("docker", "container", "image", "volume", "prune")):
+        return "docker-cleanup"
+    if _has_any(normalized, ("startup", "start up", "login item", "autostart", "boot app")):
+        return "startup-apps"
+    if _has_any(normalized, ("network", "dns", "wifi", "wi-fi", "internet", "route", "gateway")):
+        return "network-dns"
+    if _has_any(normalized, ("package", "update", "upgrade", "apt", "dnf", "pacman", "winget", "choco")):
+        return "package-updates"
+    if _has_any(normalized, ("audio", "sound", "speaker", "microphone", "mic", "volume")):
+        return "audio-routing"
+    if _has_any(
+        normalized,
+        ("display", "monitor", "screen", "scale", "scaling", "brightness", "night light", "nightlight", "refresh", "hz"),
+    ):
+        return "display"
+    if _has_any(normalized, ("slow", "sluggish", "lag", "laggy", "performance", "freezing", "hang")):
+        return "slow-computer"
+    return "unknown"
 
 
 def prepare_request_plan(request_text: str, os_name: str | None = None, distribution_hint: str | None = None) -> dict:
     """Turn a user maintenance request into an approval-required plan preview."""
 
     resolved_os = os_name or platform.system() or "Unknown"
+    platform_key = _platform_key(resolved_os)
+    platform_name = _platform_label(platform_key, resolved_os)
     normalized = _normalize(request_text)
     if not normalized:
-        return _unsupported_request_plan(request_text, resolved_os)
+        return _triage_plan(request_text, platform_name)
 
-    if "cursor" in normalized or "pointer" in normalized:
-        if resolved_os.lower().startswith("win"):
-            return _windows_cursor_plan(request_text)
-        if resolved_os.lower() == "linux":
-            return _linux_cursor_plan(request_text, distribution_hint=distribution_hint)
-
-    return _unsupported_request_plan(request_text, resolved_os)
+    family = _family_for_request(normalized)
+    if family == "cursor-size":
+        return _cursor_plan(request_text, platform_name, platform_key, distribution_hint)
+    if family == "display":
+        return _display_plan(request_text, platform_name, platform_key)
+    if family == "audio-routing":
+        return _audio_plan(request_text, platform_name, platform_key)
+    if family == "network-dns":
+        return _network_plan(request_text, platform_name, platform_key)
+    if family == "package-updates":
+        return _package_plan(request_text, platform_name, platform_key)
+    if family == "docker-cleanup":
+        return _docker_plan(request_text, platform_name, platform_key)
+    if family == "startup-apps":
+        return _startup_plan(request_text, platform_name, platform_key)
+    if family == "slow-computer":
+        return _slow_computer_plan(request_text, platform_name, platform_key)
+    return _triage_plan(request_text, platform_name)
 
 
 def format_request_plan(plan: dict) -> str:
     lines = [
         plan["title"],
+        f"Family: {plan.get('family', 'unknown')}",
         f"Platform: {plan['platform']}",
         f"Risk: {plan['risk']}",
         f"Requires privilege: {plan['requires_privilege']}",

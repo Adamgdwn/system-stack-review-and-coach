@@ -22,6 +22,10 @@ const maintenancePlans = document.querySelector("#maintenancePlans");
 const requestInput = document.querySelector("#requestInput");
 const prepareRequestButton = document.querySelector("#prepareRequestButton");
 const requestPlan = document.querySelector("#requestPlan");
+const refreshHistoryButton = document.querySelector("#refreshHistoryButton");
+const historyPath = document.querySelector("#historyPath");
+const historyLessons = document.querySelector("#historyLessons");
+const historyRecords = document.querySelector("#historyRecords");
 const coachQuestionInput = document.querySelector("#coachQuestionInput");
 const askCoachButton = document.querySelector("#askCoachButton");
 const coachConversation = document.querySelector("#coachConversation");
@@ -30,6 +34,7 @@ let currentReport = null;
 let currentMap = null;
 let currentMaintenance = null;
 let currentRequestPlan = null;
+let currentHistory = null;
 
 function setStatus(text) {
   statusText.textContent = text;
@@ -330,6 +335,39 @@ function renderRequestPlan(plan) {
   `;
 }
 
+function renderHistory(history) {
+  historyPath.textContent = `History path: ${history.path}`;
+  historyLessons.innerHTML = "";
+  if (!history.known_good_lessons.length) {
+    historyLessons.innerHTML = `<article class="stack-card"><h3>No known-good lessons yet</h3><p>Clean diagnostic snapshots will appear here only when the evidence supports them.</p></article>`;
+  } else {
+    history.known_good_lessons.forEach((lesson) => {
+      const card = document.createElement("article");
+      card.className = "stack-card";
+      card.innerHTML = `<h3>Known-good lesson</h3><p>${lesson}</p>`;
+      historyLessons.appendChild(card);
+    });
+  }
+
+  historyRecords.innerHTML = "";
+  if (!history.records.length) {
+    historyRecords.textContent = "No history records yet.";
+    return;
+  }
+
+  history.records.forEach((record) => {
+    const entry = document.createElement("div");
+    entry.className = "command-entry";
+    entry.innerHTML = `
+      <code>${record.kind}</code>
+      <span>${record.recorded_at || "unknown time"}</span>
+      <span>${record.id}</span>
+      <p>${JSON.stringify(record.summary)}</p>
+    `;
+    historyRecords.appendChild(entry);
+  });
+}
+
 function appendCoachMessage(speaker, text) {
   const entry = document.createElement("div");
   entry.className = "command-entry";
@@ -431,6 +469,7 @@ async function runMaintenance() {
     }
     currentMaintenance = await response.json();
     renderMaintenance(currentMaintenance);
+    await loadHistory();
     setStatus("Maintenance diagnostics complete. No fixes were executed.");
   } catch (error) {
     console.error(error);
@@ -465,6 +504,7 @@ async function prepareRequestPlan() {
     }
     currentRequestPlan = await response.json();
     renderRequestPlan(currentRequestPlan);
+    await loadHistory();
     appendCoachMessage("Plan", `${currentRequestPlan.title}\nExecution enabled: ${currentRequestPlan.execution_enabled}`);
     setStatus("Approval-required plan prepared. No change was executed.");
   } catch (error) {
@@ -473,6 +513,15 @@ async function prepareRequestPlan() {
   } finally {
     prepareRequestButton.disabled = false;
   }
+}
+
+async function loadHistory() {
+  const response = await fetch("/api/history", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`History request failed with status ${response.status}`);
+  }
+  currentHistory = await response.json();
+  renderHistory(currentHistory);
 }
 
 async function askCoach() {
@@ -541,6 +590,14 @@ shareSummaryButton.addEventListener("click", copyShareSummary);
 runReviewButton.addEventListener("click", runReview);
 runMaintenanceButton.addEventListener("click", runMaintenance);
 prepareRequestButton.addEventListener("click", prepareRequestPlan);
+refreshHistoryButton.addEventListener("click", () => {
+  loadHistory()
+    .then(() => setStatus("Local maintenance history refreshed."))
+    .catch((error) => {
+      console.error(error);
+      setStatus(`History refresh failed: ${error.message}`);
+    });
+});
 askCoachButton.addEventListener("click", askCoach);
 loadScanOptions().catch((error) => {
   console.error(error);
@@ -548,3 +605,7 @@ loadScanOptions().catch((error) => {
 });
 runReview();
 runMaintenance();
+loadHistory().catch((error) => {
+  console.error(error);
+  setStatus(`Could not load history: ${error.message}`);
+});

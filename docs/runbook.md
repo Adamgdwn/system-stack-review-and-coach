@@ -6,6 +6,7 @@ This system teaches users about their local development environment through a na
 
 It can also perform an opt-in filesystem map for user-selected roots to explain project folders, repositories, and configuration files in plain language.
 The maintenance diagnostics workflow runs read-only system health checks and prepares approval-required plans without executing fixes.
+Maintenance reports and Request Desk plans are appended to a local JSONL history archive.
 When Ollama is available locally, it can answer follow-up questions using the local model and the generated stack, filesystem, and maintenance context.
 
 ## Alerts And Failures
@@ -18,6 +19,7 @@ Likely failure conditions:
 - A probe command hangs or is missing.
 - A filesystem map root is too large, slow, or permission-limited.
 - A maintenance diagnostic command is missing, times out, or returns permission-limited evidence.
+- The local history archive cannot be written or read.
 - Ollama is unavailable, has no supported model, or returns an error while answering.
 - The desktop launcher points to an outdated repository path.
 
@@ -30,6 +32,7 @@ First response:
 5. Refresh the local AI status line and confirm `ollama list` shows an installed model.
 6. Reduce filesystem scan scope to one or two specific roots if mapping is slow.
 7. Run maintenance diagnostics and review findings before preparing any machine-changing action.
+8. Refresh the History view to confirm diagnostics and request plans are being recorded.
 
 ## Dependencies
 
@@ -41,6 +44,7 @@ First response:
 - Optional read-only maintenance commands such as `findmnt`, `systemctl`, `journalctl`, `ip`, and a local package manager
 - Windows browser mode can use read-only commands such as `wevtutil`, `route`, and `winget` when present
 - Read access for any folders the user chooses to map
+- Write access to `history/maintenance-history.jsonl` or the directory configured by `STACK_COACH_HISTORY_DIR`
 
 ## Recovery
 
@@ -51,6 +55,7 @@ First response:
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
 - If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before any future execution support is considered.
+- If history does not update, check directory permissions or set `STACK_COACH_HISTORY_DIR` to a writable local path.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.
 - If the window feels cramped, resize it; the shell should reflow between side-by-side and stacked layouts automatically.
 

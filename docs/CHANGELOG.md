@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Completed roadmap Chunk 3 by expanding the Request Desk to cover display, audio, network/DNS, package/update, Docker cleanup, startup app, and slow-computer triage families.
+- Completed roadmap Chunk 4 by adding local JSONL maintenance history, evidence-backed known-good lessons, and GTK/browser history views.
 - Completed roadmap Chunk 1 by refreshing governance risk documentation, closing stale external governance-path language, and cleaning duplicate architecture wording.
 - Completed roadmap Chunk 2 by splitting maintenance plans into Linux, Windows, and explicit triage branches with tests for platform-specific command families.
 - Added desktop-session context to maintenance diagnostics and passed OS/desktop hints into Request Desk planning from desktop and browser mode.

@@ -16,6 +16,7 @@ from .agents import build_agents
 from .ai_engine import answer_question, get_engine_status
 from .diagnostics import collect_diagnostics
 from .exporting import build_share_text
+from .maintenance_history import format_history, load_history, record_maintenance_report, record_request_plan
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
 from .request_plans import format_request_plan, prepare_request_plan
@@ -43,6 +44,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self.current_map: dict | None = None
         self.current_maintenance: dict | None = None
         self.current_request_plan: dict | None = None
+        self.current_history: dict | None = None
         self.engine_status: dict | None = None
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
@@ -134,6 +136,11 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         notebook.append_page(self.maintenance_page, Gtk.Label(label="Maintenance"))
         self._build_maintenance_page()
 
+        self.history_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.history_page.set_border_width(6)
+        notebook.append_page(self.history_page, Gtk.Label(label="History"))
+        self._build_history_page()
+
         self.coach_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.coach_page.set_border_width(6)
         notebook.append_page(self.coach_page, Gtk.Label(label="Ask The Coach"))
@@ -147,6 +154,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self._refresh_engine_status()
         self.on_run_review(None)
         self.on_run_maintenance(None)
+        self.on_refresh_history(None)
 
     def _make_text_view(self) -> Gtk.TextView:
         view = Gtk.TextView()
@@ -260,6 +268,27 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             0,
         )
 
+    def _build_history_page(self) -> None:
+        intro = Gtk.Label(
+            label=(
+                "Review local diagnostic snapshots and request-plan records. The archive is local-only "
+                "and intended for troubleshooting handoff and trend review."
+            )
+        )
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        self.history_page.pack_start(intro, False, False, 0)
+
+        action_row = self._make_wrapping_flow()
+        self.history_page.pack_start(action_row, False, False, 0)
+
+        self.refresh_history_button = Gtk.Button(label="Refresh History")
+        self.refresh_history_button.connect("clicked", self.on_refresh_history)
+        action_row.add(self.refresh_history_button)
+
+        self.history_view = self._make_text_view()
+        self.history_page.pack_start(self._frame("Maintenance History", self.history_view), True, True, 0)
+
     def _build_coach_page(self) -> None:
         intro = Gtk.Label(
             label=(
@@ -280,6 +309,11 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             "What did the folder scan reveal?",
             "What maintenance issue should I check first?",
             "My cursor size seems odd. Make it smaller.",
+            "My screen is too bright.",
+            "My audio output is wrong.",
+            "DNS seems broken.",
+            "Review Docker cleanup.",
+            "My computer feels slow.",
         ]:
             button = Gtk.Button(label=prompt)
             button.connect("clicked", self.on_prompt_clicked, prompt)
@@ -513,6 +547,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
 
     def _apply_maintenance_report(self, maintenance_report: dict) -> bool:
         self.current_maintenance = maintenance_report
+        record_maintenance_report(maintenance_report)
         summary = maintenance_report["summary"]
         sections = [
             f"Generated: {maintenance_report['generated_at']}",
@@ -568,7 +603,16 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         self._set_status("Maintenance diagnostics complete. No fixes were executed.")
         self.maintenance_button.set_sensitive(True)
         self.maintenance_page_button.set_sensitive(True)
+        self._refresh_history_view()
         return False
+
+    def _refresh_history_view(self) -> None:
+        self.current_history = load_history()
+        self._set_text(self.history_view, format_history(self.current_history))
+
+    def on_refresh_history(self, _button: Gtk.Button | None) -> None:
+        self._refresh_history_view()
+        self._set_status("Local maintenance history refreshed.")
 
     def on_copy_summary(self, _button: Gtk.Button | None) -> None:
         if not self.current_report:
@@ -585,7 +629,10 @@ class StackCoachWindow(Gtk.ApplicationWindow):
 
     def on_prompt_clicked(self, _button: Gtk.Button | None, prompt: str) -> None:
         self.question_entry.set_text(prompt)
-        if "cursor" in prompt.lower():
+        if any(
+            word in prompt.lower()
+            for word in ("cursor", "screen", "audio", "dns", "docker", "slow", "startup", "package", "update")
+        ):
             self.on_prepare_request_plan(None)
             return
         self.on_ask_coach(None)
@@ -605,11 +652,13 @@ class StackCoachWindow(Gtk.ApplicationWindow):
             distribution_hint=desktop_hint,
         )
         self.current_request_plan = plan
+        record_request_plan(plan)
         formatted = format_request_plan(plan)
         self._set_text(self.request_plan_view, formatted)
         self._append_text(self.coach_view, f"You: {request_text}")
         self._append_text(self.coach_view, f"Plan [{plan['platform']}]:\n{formatted}")
         self._set_status("Approval-required plan prepared. No change was executed.")
+        self._refresh_history_view()
 
     def on_ask_coach(self, _widget: Gtk.Widget | None) -> None:
         question = self.question_entry.get_text().strip()

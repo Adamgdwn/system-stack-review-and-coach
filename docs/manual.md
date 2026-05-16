@@ -11,7 +11,9 @@ The next product direction is to grow this into a system maintenance and trouble
 - Local review probes run bounded, read-only checks.
 - Filesystem mapping only scans roots selected by the user.
 - AI coaching is grounded in the generated report and selected map.
-- Maintenance diagnostics should begin as read-only observations and recommendations.
+- Maintenance diagnostics run as read-only observations and recommendations.
+- Request Desk plans cover common troubleshooting families but remain approval-required previews.
+- Local history records diagnostic snapshots and request-plan previews for later review.
 - Any future repair or cleanup action must require explicit user approval before execution.
 
 ## Governance
@@ -26,8 +28,9 @@ In practical terms, the tool may inspect, summarize, and recommend. It may prepa
 2. Run a local review to inspect the current environment and installed tools.
 3. Optionally scan selected roots to discover projects and configuration files.
 4. Ask the local coach questions about the detected stack or selected roots.
-5. Use the Request Desk for specific approval-required plans, such as changing cursor size.
-6. Copy a share summary when a plain-language environment overview is needed.
+5. Use the Request Desk for specific approval-required plans, such as changing cursor size, checking DNS, reviewing Docker cleanup, or triaging slow performance.
+6. Review the History view when comparing recent diagnostics or preparing a support handoff.
+7. Copy a share summary when a plain-language environment overview is needed.
 
 ## Maintenance Direction
 
