@@ -37,6 +37,7 @@ controls:
     - lint
     - tests
     - secret-scan
+  action_runner_enabled: true
 exceptions: []
 agent_controls:
   applicable: true

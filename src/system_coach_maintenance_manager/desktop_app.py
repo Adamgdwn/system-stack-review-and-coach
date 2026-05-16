@@ -16,7 +16,9 @@ from .agents import build_agents
 from .ai_engine import answer_question, get_engine_status
 from .diagnostics import collect_diagnostics
 from .exporting import build_share_text
+from .maintenance_actions import execute_guarded_action
 from .maintenance_history import format_history, load_history, record_maintenance_report, record_request_plan
+from .maintenance_history import record_action_result
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
 from .request_plans import format_request_plan, prepare_request_plan
@@ -33,11 +35,16 @@ def build_maintenance_report() -> dict:
 
 
 class SystemCoachWindow(Gtk.ApplicationWindow):
+    DEFAULT_WINDOW_WIDTH = 1120
+    DEFAULT_WINDOW_HEIGHT = 720
+    MIN_VIEWPORT_WIDTH = 720
+    MIN_VIEWPORT_HEIGHT = 420
     NARROW_LAYOUT_WIDTH = 1120
 
     def __init__(self, app: Gtk.Application):
         super().__init__(application=app, title="System Coach and Maintenance Manager")
-        self.set_default_size(1220, 840)
+        self.set_default_size(self.DEFAULT_WINDOW_WIDTH, self.DEFAULT_WINDOW_HEIGHT)
+        self.set_resizable(True)
         self.set_border_width(16)
 
         self.current_report: dict | None = None
@@ -46,9 +53,20 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.current_request_plan: dict | None = None
         self.current_history: dict | None = None
         self.engine_status: dict | None = None
+        self.queued_plans: list[dict] = []
+
+        outer_scroll = Gtk.ScrolledWindow()
+        outer_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        outer_scroll.set_min_content_width(self.MIN_VIEWPORT_WIDTH)
+        outer_scroll.set_min_content_height(self.MIN_VIEWPORT_HEIGHT)
+        outer_scroll.set_hexpand(True)
+        outer_scroll.set_vexpand(True)
+        self.add(outer_scroll)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        self.add(root)
+        root.set_hexpand(True)
+        root.set_vexpand(True)
+        outer_scroll.add(root)
 
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         root.pack_start(header, False, False, 0)
@@ -87,6 +105,23 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.share_button.connect("clicked", self.on_copy_summary)
         action_row.add(self.share_button)
 
+        nav_row = self._make_wrapping_flow()
+        root.pack_start(nav_row, False, False, 0)
+
+        for label, page_index in [
+            ("Request Desk", 4),
+            ("Approval Queue", 5),
+            ("Ask The Coach", 7),
+        ]:
+            button = Gtk.Button(label=label)
+            button.connect("clicked", self.on_nav_clicked, page_index)
+            nav_row.add(button)
+
+        self.execute_nav_button = Gtk.Button(label="Execute Fixes")
+        self.execute_nav_button.set_tooltip_text("Open the Approval Queue and run the selected fix when its contract is enabled.")
+        self.execute_nav_button.connect("clicked", self.on_execute_selected_action)
+        nav_row.add(self.execute_nav_button)
+
         self.status_label = Gtk.Label(label="Ready. Run a review to learn the environment.")
         self.status_label.set_xalign(0)
         self.status_label.set_line_wrap(True)
@@ -116,49 +151,50 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.learning_view = self._make_text_view()
         left.pack_start(self._frame("Learning Path", self.learning_view), True, True, 0)
 
-        notebook = Gtk.Notebook()
-        notebook.set_scrollable(True)
-        right.pack_start(notebook, True, True, 0)
+        self.notebook = Gtk.Notebook()
+        self.notebook.set_scrollable(True)
+        right.pack_start(self.notebook, True, True, 0)
 
         self.components_view = self._make_text_view()
-        notebook.append_page(self._frame("Detected Components", self.components_view), Gtk.Label(label="Components"))
+        self.notebook.append_page(self._frame("Detected Components", self.components_view), Gtk.Label(label="Components"))
 
         self.stacks_view = self._make_text_view()
-        notebook.append_page(self._frame("Stack Patterns And Tips", self.stacks_view), Gtk.Label(label="Stacks"))
+        self.notebook.append_page(self._frame("Stack Patterns And Tips", self.stacks_view), Gtk.Label(label="Stacks"))
 
         self.scan_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.scan_page.set_border_width(6)
-        notebook.append_page(self.scan_page, Gtk.Label(label="Find And Map"))
+        self.notebook.append_page(self.scan_page, Gtk.Label(label="Find And Map"))
         self._build_scan_page()
 
         self.maintenance_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.maintenance_page.set_border_width(6)
-        notebook.append_page(self.maintenance_page, Gtk.Label(label="Maintenance"))
+        self.notebook.append_page(self.maintenance_page, Gtk.Label(label="Maintenance"))
         self._build_maintenance_page()
 
         self.request_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.request_page.set_border_width(6)
-        notebook.append_page(self.request_page, Gtk.Label(label="Request Desk"))
+        self.notebook.append_page(self.request_page, Gtk.Label(label="Request Desk"))
         self._build_request_page()
 
         self.approval_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.approval_page.set_border_width(6)
-        notebook.append_page(self.approval_page, Gtk.Label(label="Approval Queue"))
+        self.notebook.append_page(self.approval_page, Gtk.Label(label="Approval Queue"))
         self._build_approval_page()
 
         self.history_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.history_page.set_border_width(6)
-        notebook.append_page(self.history_page, Gtk.Label(label="History"))
+        self.notebook.append_page(self.history_page, Gtk.Label(label="History"))
         self._build_history_page()
 
         self.coach_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.coach_page.set_border_width(6)
-        notebook.append_page(self.coach_page, Gtk.Label(label="Ask The Coach"))
+        self.notebook.append_page(self.coach_page, Gtk.Label(label="Ask The Coach"))
         self._build_coach_page()
 
         self.command_view = self._make_text_view()
-        notebook.append_page(self._frame("Command Log", self.command_view), Gtk.Label(label="Command Log"))
+        self.notebook.append_page(self._frame("Command Log", self.command_view), Gtk.Label(label="Command Log"))
 
+        self._content_orientation: Gtk.Orientation | None = None
         self.connect("size-allocate", self._on_size_allocate)
         self.show_all()
         self._refresh_engine_status()
@@ -304,6 +340,10 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.maintenance_page_button.connect("clicked", self.on_run_maintenance)
         action_row.add(self.maintenance_page_button)
 
+        self.review_findings_button = Gtk.Button(label="Review Findings")
+        self.review_findings_button.connect("clicked", self.on_review_findings)
+        action_row.add(self.review_findings_button)
+
         self.maintenance_summary_view = self._make_text_view()
         self.maintenance_page.pack_start(
             self._frame("Maintenance Summary And Findings", self.maintenance_summary_view),
@@ -364,13 +404,35 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
     def _build_approval_page(self) -> None:
         intro = Gtk.Label(
             label=(
-                "Review prepared maintenance and request plans before any future execution support. "
-                "This queue is read-only; execution is disabled at governance level 1."
+                "Review prepared maintenance and request plans before execution. "
+                "Press Execute to run the selected plan when its guarded contract is enabled."
             )
         )
         intro.set_xalign(0)
         intro.set_line_wrap(True)
         self.approval_page.pack_start(intro, False, False, 0)
+
+        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.approval_page.pack_start(controls, False, False, 0)
+
+        self.approval_plan_picker = Gtk.ComboBoxText()
+        self.approval_plan_picker.set_hexpand(True)
+        controls.pack_start(self.approval_plan_picker, True, True, 0)
+
+        self.review_action_button = Gtk.Button(label="Review Selected Plan")
+        self.review_action_button.set_tooltip_text("Inspect risk, command preview, rollback, and execution gate reasons.")
+        self.review_action_button.connect("clicked", self.on_review_selected_action)
+        controls.pack_start(self.review_action_button, False, False, 0)
+
+        self.execute_action_button = Gtk.Button(label="Execute Selected Fix")
+        self.execute_action_button.set_tooltip_text("Open the guarded execution dialog. Execution remains locked until governance allows it.")
+        self.execute_action_button.connect("clicked", self.on_execute_selected_action)
+        controls.pack_start(self.execute_action_button, False, False, 0)
+
+        self.execution_gate_label = Gtk.Label()
+        self.execution_gate_label.set_xalign(0)
+        self.execution_gate_label.set_line_wrap(True)
+        self.approval_page.pack_start(self.execution_gate_label, False, False, 0)
 
         self.approval_queue_view = self._make_text_view()
         self.approval_page.pack_start(self._frame("Scannable Approval Queue", self.approval_queue_view), True, True, 0)
@@ -456,14 +518,17 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
 
     def _on_size_allocate(self, _widget: Gtk.Widget, allocation: Gdk.Rectangle) -> None:
         if allocation.width < self.NARROW_LAYOUT_WIDTH:
-            if self.content_paned.get_orientation() != Gtk.Orientation.VERTICAL:
-                self.content_paned.set_orientation(Gtk.Orientation.VERTICAL)
-            self.content_paned.set_position(int(allocation.height * 0.44))
+            self._set_content_orientation(Gtk.Orientation.VERTICAL, int(allocation.height * 0.44))
             return
 
-        if self.content_paned.get_orientation() != Gtk.Orientation.HORIZONTAL:
-            self.content_paned.set_orientation(Gtk.Orientation.HORIZONTAL)
-        self.content_paned.set_position(int(allocation.width * 0.46))
+        self._set_content_orientation(Gtk.Orientation.HORIZONTAL, int(allocation.width * 0.46))
+
+    def _set_content_orientation(self, orientation: Gtk.Orientation, position: int) -> None:
+        if self._content_orientation == orientation:
+            return
+        self._content_orientation = orientation
+        self.content_paned.set_orientation(orientation)
+        self.content_paned.set_position(position)
 
     def _selected_roots(self) -> list[str]:
         roots = []
@@ -686,6 +751,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.maintenance_page_button.set_sensitive(True)
         self._refresh_history_view()
         self._refresh_approval_queue()
+        if maintenance_report["findings"]:
+            self._show_maintenance_findings_dialog()
         return False
 
     def _refresh_history_view(self) -> None:
@@ -698,6 +765,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             queued_plans.extend(self.current_maintenance.get("action_plans", []))
         if self.current_request_plan:
             queued_plans.append(self.current_request_plan)
+        self.queued_plans = queued_plans
+        self._refresh_approval_controls()
 
         if not queued_plans:
             self._set_text(
@@ -710,6 +779,256 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         for index, plan in enumerate(queued_plans, 1):
             queue_sections.extend([f"Queue item {index}", self._format_plan_details(plan), ""])
         self._set_text(self.approval_queue_view, "\n".join(queue_sections).strip())
+
+    def _refresh_approval_controls(self) -> None:
+        self.approval_plan_picker.remove_all()
+        if not self.queued_plans:
+            self.approval_plan_picker.append_text("No queued plans")
+            self.approval_plan_picker.set_active(0)
+            self.review_action_button.set_sensitive(False)
+            self.execute_action_button.set_sensitive(False)
+            self.execute_nav_button.set_sensitive(False)
+            self.execution_gate_label.set_text("Execution is locked. Prepare a request plan or run diagnostics to review a queued fix.")
+            return
+
+        any_execution_enabled = False
+        for index, plan in enumerate(self.queued_plans, 1):
+            contract = plan.get("action_contract", {})
+            if contract.get("execution_enabled"):
+                any_execution_enabled = True
+            self.approval_plan_picker.append_text(f"{index}. {plan['title']}")
+        self.approval_plan_picker.set_active(0)
+        self.review_action_button.set_sensitive(True)
+        self.execute_action_button.set_sensitive(True)
+        self.execute_nav_button.set_sensitive(True)
+        if any_execution_enabled:
+            self.execution_gate_label.set_text(
+                "At least one queued plan is execution-enabled. Press Execute Selected Fix to run the selected plan."
+            )
+        else:
+            self.execution_gate_label.set_text(
+                "Execution is visible but the selected plans are not executable yet. "
+                "Use Review Selected Plan to inspect commands, risk, rollback, and gate reasons."
+            )
+
+    def _selected_queued_plan(self) -> dict | None:
+        index = self.approval_plan_picker.get_active()
+        if index < 0 or index >= len(self.queued_plans):
+            return None
+        return self.queued_plans[index]
+
+    def _show_action_dialog(self, title: str, body: str, entry_text: str | None = None) -> str | None:
+        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        dialog.set_default_size(780, 520)
+        content = dialog.get_content_area()
+        content.set_border_width(12)
+
+        text_view = self._make_text_view()
+        self._set_text(text_view, body)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_hexpand(True)
+        scroll.set_vexpand(True)
+        scroll.add(text_view)
+        content.pack_start(scroll, True, True, 0)
+
+        entry = None
+        if entry_text is not None:
+            entry = Gtk.Entry()
+            entry.set_text(entry_text)
+            entry.set_editable(False)
+            content.pack_start(entry, False, False, 8)
+        dialog.show_all()
+        dialog.run()
+        value = entry.get_text() if entry else None
+        dialog.destroy()
+        return value
+
+    def _finding_for_plan(self, plan: dict) -> dict | None:
+        finding_id = plan.get("finding_id")
+        if not finding_id or not self.current_maintenance:
+            return None
+        for finding in self.current_maintenance.get("findings", []):
+            if finding.get("id") == finding_id:
+                return finding
+        return None
+
+    def _plain_plan_summary(self, plan: dict) -> str:
+        finding = self._finding_for_plan(plan)
+        contract = plan.get("action_contract", {})
+        gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
+        commands = contract.get("command_preview", plan.get("commands", []))
+        executable = contract.get("execution_enabled", False)
+        changes_system = plan.get("family") in {"cursor-size", "display-brightness", "display-night-light", "display-refresh-rate", "display-scaling", "audio-routing"}
+
+        if finding:
+            problem = finding["summary"]
+            why = json.dumps(finding.get("evidence", {}), indent=2)
+        else:
+            problem = plan.get("summary", "This plan came from a direct user request.")
+            why = plan.get("summary", "The request matched a known maintenance family.")
+
+        if executable and changes_system:
+            action = "Execute will apply this low-risk current-user setting change."
+        elif executable:
+            action = "Execute will run these safe read-only commands and collect evidence. This is not a final repair yet."
+        else:
+            action = "Execute will not run this plan yet because the runner blocked it."
+
+        lines = [
+            plan["title"],
+            "",
+            "What it found:",
+            problem,
+            "",
+            "Why this may be happening:",
+            why or "The diagnostic needs more evidence before naming a root cause.",
+            "",
+            "What Execute will do:",
+            action,
+            "",
+            "Commands:",
+            *(f"- {command}" for command in commands),
+            "",
+            "Can execute now:",
+            "Yes" if executable else "No",
+        ]
+        if gate_reasons:
+            lines.extend(["", "Why blocked:", *(f"- {reason}" for reason in gate_reasons)])
+        lines.extend(
+            [
+                "",
+                "Rollback or follow-up:",
+                *(f"- {item}" for item in plan.get("rollback", []) or plan.get("manual_steps", [])),
+            ]
+        )
+        return "\n".join(lines)
+
+    def _show_maintenance_findings_dialog(self) -> None:
+        if not self.current_maintenance:
+            self._show_action_dialog("Maintenance Findings", "Run maintenance diagnostics before reviewing findings.")
+            return
+
+        findings = self.current_maintenance.get("findings", [])
+        plans = self.current_maintenance.get("action_plans", [])
+        if not findings:
+            self._show_action_dialog(
+                "Maintenance Findings",
+                "No urgent maintenance problems were found by the current scan.",
+            )
+            return
+
+        sections = [
+            "Maintenance scan found items that need review.",
+            "",
+            "Plain-language summary:",
+            "",
+        ]
+        for index, plan in enumerate(plans, 1):
+            sections.extend([f"Item {index}", self._plain_plan_summary(plan), ""])
+
+        if not plans:
+            for index, finding in enumerate(findings, 1):
+                sections.extend(
+                    [
+                        f"Item {index}: {finding['title']}",
+                        "",
+                        "What it found:",
+                        finding["summary"],
+                        "",
+                        "Why this may be happening:",
+                        json.dumps(finding.get("evidence", {}), indent=2),
+                        "",
+                        "What to do next:",
+                        *[f"- {step}" for step in finding.get("recommended_next_steps", [])],
+                        "",
+                    ]
+                )
+
+        self._show_action_dialog("Maintenance Findings", "\n".join(sections).strip())
+
+    def on_nav_clicked(self, _button: Gtk.Button, page_index: int) -> None:
+        self.notebook.set_current_page(page_index)
+
+    def on_review_selected_action(self, _button: Gtk.Button | None) -> None:
+        plan = self._selected_queued_plan()
+        if not plan:
+            self._set_status("No queued plan is selected.")
+            return
+        contract = plan.get("action_contract", {})
+        gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
+        body = "\n".join(
+            [
+                plan["title"],
+                "",
+                f"Risk: {plan['risk']}",
+                f"Reversible: {plan['reversible']}",
+                f"Requires privilege: {plan['requires_privilege']}",
+                f"Execution enabled: {contract.get('execution_enabled', False)}",
+                "",
+                "Gate reasons:",
+                *(f"- {reason}" for reason in gate_reasons),
+                "",
+                "Command preview:",
+                *(f"- {command}" for command in contract.get("command_preview", [])),
+            ]
+        )
+        self._show_action_dialog("Review Selected Plan", body)
+
+    def on_execute_selected_action(self, _button: Gtk.Button | None) -> None:
+        self.notebook.set_current_page(5)
+        plan = self._selected_queued_plan()
+        if not plan:
+            self._set_status("Prepare a request plan or run diagnostics before reviewing execution.")
+            self._show_action_dialog(
+                "No Fix Selected",
+                "No approval-required fix is queued yet. Use Request Desk to describe a specific request, or run maintenance diagnostics to populate the Approval Queue.",
+            )
+            return
+        contract = plan.get("action_contract", {})
+        result = execute_guarded_action(contract, "")
+        record_action_result(result)
+        if result["status"] == "completed":
+            body = "\n".join(
+                [
+                    "Execution completed.",
+                    "",
+                    f"Selected plan: {plan['title']}",
+                    f"Action id: {contract.get('id', 'unknown')}",
+                    "",
+                    "Command output:",
+                    result.get("output") or "No command output was returned.",
+                    "",
+                    "Post-check:",
+                    *(f"- {item}" for item in result.get("post_check", [])),
+                ]
+            )
+            status = "Selected fix executed. Review the post-check notes."
+        else:
+            gate_reasons = result.get("error") or "Execution is blocked by the current controls."
+            body = "\n".join(
+                [
+                    "Execution did not run.",
+                    "",
+                    f"Selected plan: {plan['title']}",
+                    f"Action id: {contract.get('id', 'unknown')}",
+                    f"Status: {result['status']}",
+                    "",
+                    "Reason:",
+                    gate_reasons,
+                    "",
+                    "Only exact, low-risk, reversible, non-privileged plans in the guarded catalog can execute.",
+                ]
+            )
+            status = "Execution did not run. Review the gate reason."
+        self._show_action_dialog("Execute Selected Fix", body)
+        self._refresh_history_view()
+        self._refresh_approval_queue()
+        self._set_status(status)
+
+    def on_review_findings(self, _button: Gtk.Button | None) -> None:
+        self._show_maintenance_findings_dialog()
 
     def on_refresh_history(self, _button: Gtk.Button | None) -> None:
         self._refresh_history_view()

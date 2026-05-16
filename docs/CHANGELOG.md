@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Enabled guarded low-risk action execution from the desktop Execute button when project controls allow it.
+- Added a plain-language Maintenance Findings dialog that explains what was found, why it matters, and what Execute will do.
+- Added clearer desktop workflow controls for Request Desk, Approval Queue, Chat, and gated execution review.
+- Fixed desktop resize ergonomics by lowering the default window height and wrapping the GTK shell in a top-level scrollable viewport.
 - Renamed the application, package, launchers, desktop IDs, environment variable, and documentation to System Coach and Maintenance Manager.
 - Completed roadmap Chunk 7 by adding an approved-action contract with command previews, timeout/output/post-check/rollback fields, confirmation phrases, UI visibility, and history-compatible action results.
 - Completed roadmap Chunk 8 as a guarded scaffold: low-risk eligibility checks and blocked action-run results exist, but execution remains disabled pending governance reassessment.

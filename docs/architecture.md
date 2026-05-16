@@ -30,8 +30,8 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 4. If the user opts in, the filesystem mapper scans only the selected locations.
 5. The reporting layer enriches those findings with explanatory knowledge and compatibility notes.
 6. If the user runs maintenance diagnostics, read-only checks collect system-health evidence and convert it into findings and approval-required plan previews.
-7. Prepared plans receive an approved-action contract, but execution remains blocked by governance.
-8. Maintenance reports, Request Desk plans, and blocked action results can be appended to local history for later review.
+7. Prepared plans receive an approved-action contract; eligible low-risk plans can run only when the user presses Execute.
+8. Maintenance reports, Request Desk plans, and completed, failed, or blocked action results can be appended to local history for later review.
 9. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
 10. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
 
@@ -58,7 +58,7 @@ No remote services are required, and no probe or filesystem results are transmit
 - Agent controls were reassessed to `A1` because the tool now uses bounded local probe agents to execute read-only inspection commands.
 - Filesystem mapping is opt-in and scope-based to avoid surprising broad scans across the machine.
 - Local AI coaching uses an on-device model through Ollama so stack questions can stay within the local environment.
-- Maintenance diagnostics are read-only in the current governance level. Prepared plans require approval and execution is disabled until the action runner is explicitly designed and reassessed.
-- Approved-action contracts make future execution requirements visible, but guarded execution is blocked until governance, autonomy, and implementation are reassessed.
+- Maintenance diagnostics are read-only in the current governance level. Prepared plans require approval, and eligible guarded plans execute only when the user presses Execute.
+- Approved-action contracts make execution requirements visible, and guarded execution stays limited to user-approved low-risk plans.
 - Local history is JSONL so support handoff can use regular file tools without a database dependency.
 - Browser mode is the portability baseline. Native Windows UI support is a future enhancement unless a cross-platform GUI toolkit is introduced.

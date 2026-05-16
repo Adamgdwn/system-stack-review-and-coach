@@ -7,7 +7,7 @@ This system teaches users about their local development environment through a na
 It can also perform an opt-in filesystem map for user-selected roots to explain project folders, repositories, and configuration files in plain language.
 The maintenance diagnostics workflow runs read-only system health checks and prepares approval-required plans without executing fixes.
 Maintenance reports and Request Desk plans are appended to a local JSONL history archive.
-Prepared plans include approved-action contracts, but guarded execution is blocked until governance is reassessed.
+Prepared plans include approved-action contracts. Eligible low-risk plans can execute only after the user presses Execute.
 When Ollama is available locally, it can answer follow-up questions using the local model and the generated stack, filesystem, and maintenance context.
 
 ## Alerts And Failures
@@ -21,7 +21,7 @@ Likely failure conditions:
 - A filesystem map root is too large, slow, or permission-limited.
 - A maintenance diagnostic command is missing, times out, or returns permission-limited evidence.
 - The local history archive cannot be written or read.
-- An action contract appears eligible but remains blocked by governance.
+- An action contract appears blocked even though the user expects it to run.
 - Ollama is unavailable, has no supported model, or returns an error while answering.
 - The desktop launcher points to an outdated repository path.
 
@@ -35,8 +35,8 @@ First response:
 6. Reduce filesystem scan scope to one or two specific roots if mapping is slow.
 7. Run maintenance diagnostics and review findings before preparing any machine-changing action.
 8. Refresh the History view to confirm diagnostics and request plans are being recorded.
-9. Check the Approval Queue to confirm every prepared plan still says execution is disabled.
-10. If an action-run attempt is tested, confirm it records a blocked result and does not run commands.
+9. Check the Approval Queue to confirm each prepared plan shows exact commands and a clear execution state.
+10. If an action-run attempt is tested, confirm eligible low-risk plans run and record output, while ineligible plans record blocked reasons.
 
 ## Dependencies
 
@@ -58,8 +58,8 @@ First response:
 - If filesystem mapping feels too broad, clear the selected roots and rerun with only the directories you want to inspect.
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
 - If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
-- If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before any future execution support is considered.
-- If an action contract says execution is blocked, that is expected under governance level `1` and autonomy `A1`.
+- If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before pressing Execute.
+- If an action contract says execution is blocked, review the gate reasons; privileged, destructive, placeholder, unsupported, or higher-risk plans should remain blocked.
 - If history does not update, check directory permissions or set `SYSTEM_COACH_HISTORY_DIR` to a writable local path.
 - If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.

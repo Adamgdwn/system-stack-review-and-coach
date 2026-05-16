@@ -81,6 +81,15 @@ class MaintenanceReportingTests(unittest.TestCase):
         self.assertIn("eventvwr.msc", commands)
         self.assertNotIn("journalctl", commands)
 
+    def test_linux_log_plan_is_executable_evidence_collection(self):
+        diagnostics = self._diagnostics("Linux", [self._finding("journal-errors", "logs", {"line_count": 3})])
+
+        report = generate_maintenance_report(diagnostics)
+
+        self.assertTrue(report["summary"]["execution_enabled"])
+        self.assertTrue(report["action_plans"][0]["execution_enabled"])
+        self.assertIn("journalctl", report["action_plans"][0]["commands"][0])
+
     def test_windows_network_plan_uses_windows_route_and_dns_commands(self):
         diagnostics = self._diagnostics(
             "Windows",

@@ -45,7 +45,7 @@ Add a maintenance domain beside the existing stack-review domain:
 
 - `diagnostics.py`: read-only system checks and evidence collection
 - `maintenance_reporting.py`: converts diagnostic records into severity, plain-language explanations, and next steps
-- `maintenance_actions.py`: approved-action contract, low-risk eligibility checks, blocked action-run results, and future guarded-command registry
+- `maintenance_actions.py`: approved-action contract, low-risk eligibility checks, guarded command execution, and completed/failed/blocked action-run results
 - `maintenance_history.py`: local JSONL archive of diagnostic snapshots, request plans, approval decisions, and future action outcomes
 
 The desktop app can then add a Maintenance tab without disrupting the existing Summary, Components, Find And Map, and Ask The Coach flows.

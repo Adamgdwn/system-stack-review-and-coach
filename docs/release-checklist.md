@@ -22,7 +22,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run Local Review.
 - Run Maintenance Diagnostics.
 - Prepare a Request Desk plan.
-- Confirm Approval Queue shows exact commands, risk, reversibility, privilege, and execution disabled.
+- Confirm Approval Queue shows exact commands, risk, reversibility, privilege, and guarded execution state.
 - Confirm each queued plan shows an action-runner contract and gate reason.
 - Refresh History and confirm the local JSONL path is visible.
 - Ask Coach a short question when Ollama is available.
@@ -37,7 +37,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run Maintenance Diagnostics.
 - Prepare a Request Desk plan.
 - Confirm Approval Queue and History update.
-- Confirm `/api/action-run` returns a blocked result for the current governance level.
+- Confirm action execution records completed output for eligible low-risk plans and blocked reasons for ineligible plans.
 - Ask Coach a short question when Ollama is available.
 
 ## Windows Browser Mode Smoke Test

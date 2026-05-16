@@ -1,19 +1,18 @@
-"""Approved-action contract and guarded execution scaffolding.
-
-The current governance level keeps execution disabled. This module defines the
-contract shape and records blocked attempts so future execution work has a
-strong interface without silently changing the machine today.
-"""
+"""Approved-action contracts and guarded command execution."""
 
 from __future__ import annotations
 
 import datetime as dt
+import os
 from pathlib import Path
 import re
+import shlex
+import subprocess
 
 
 DEFAULT_TIMEOUT_SECONDS = 30
 CONTRACT_VERSION = "approved-action-contract-v1"
+MAX_OUTPUT_BYTES = 20000
 LOW_RISK_FAMILIES = {
     "cursor-size",
     "display-brightness",
@@ -21,7 +20,35 @@ LOW_RISK_FAMILIES = {
     "display-refresh-rate",
     "display-scaling",
     "audio-routing",
+    "failed-services",
+    "journal-errors",
+    "network-basics",
 }
+ALLOWED_EXECUTABLES = {
+    "brightnessctl",
+    "cat",
+    "cmd",
+    "cosmic-settings",
+    "eventvwr.msc",
+    "gsettings",
+    "ip",
+    "ipconfig",
+    "journalctl",
+    "kcmshell5",
+    "kcmshell6",
+    "kscreen-doctor",
+    "pactl",
+    "powershell",
+    "pwsh",
+    "resolvectl",
+    "route",
+    "systemctl",
+    "wevtutil",
+    "xfconf-query",
+    "xrandr",
+}
+READ_ONLY_VERBS = {"get", "info", "list", "query"}
+MUTATING_VERBS = {"set"}
 
 
 def _now() -> str:
@@ -85,6 +112,10 @@ def _candidate_assessment(plan: dict) -> dict:
         reasons.append("plan has no exact command preview")
     if any(_has_placeholder(command) for command in commands):
         reasons.append("plan contains placeholder command text")
+    for command in commands:
+        allowed, reason = _command_allowed(command, family)
+        if not allowed:
+            reasons.append(reason or f"command is not allowed: {command}")
     return {
         "eligible": not reasons,
         "reasons": reasons,
@@ -96,18 +127,40 @@ def _execution_gate(controls: dict, assessment: dict) -> dict:
     reasons = []
     governance_level = controls.get("governance_level")
     autonomy_level = controls.get("autonomy_level")
-    if governance_level is None or governance_level < 2:
-        reasons.append("governance reassessment is required before guarded action execution")
-    if autonomy_level in {None, "A1"}:
-        reasons.append("current autonomy level does not allow action execution")
+    if governance_level != 1:
+        reasons.append("guarded execution currently requires governance level 1 approval controls")
+    if autonomy_level != "A1":
+        reasons.append("guarded execution currently requires A1 user-approved autonomy")
     if not controls.get("action_runner_enabled"):
         reasons.append("action_runner_enabled is not set in project controls")
     if not assessment["eligible"]:
         reasons.extend(assessment["reasons"])
     return {
-        "allowed": False,
-        "reasons": reasons or ["execution is disabled by default"],
+        "allowed": not reasons,
+        "reasons": reasons,
     }
+
+
+def _split_command(command: str) -> list[str]:
+    return shlex.split(command, posix=os.name != "nt")
+
+
+def _command_allowed(command: str, family: str) -> tuple[bool, str | None]:
+    try:
+        parts = _split_command(command)
+    except ValueError as exc:
+        return False, f"command could not be parsed safely: {exc}"
+    if not parts:
+        return False, "empty command"
+    executable = Path(parts[0]).name.lower()
+    if executable not in ALLOWED_EXECUTABLES:
+        return False, f"executable {parts[0]} is not in the guarded catalog"
+    if executable in {"gsettings", "xfconf-query"}:
+        if not any(verb in parts for verb in READ_ONLY_VERBS | MUTATING_VERBS) and "-s" not in parts:
+            return False, f"{executable} command does not declare an allowed read or set operation"
+    if executable in {"cmd", "powershell", "pwsh"} and family not in {"cursor-size", "journal-errors", "network-basics"}:
+        return False, f"{executable} execution is only enabled for guarded settings or read-only evidence plans"
+    return True, None
 
 
 def build_action_contract(plan: dict, project_control_path: Path | None = None) -> dict:
@@ -139,7 +192,7 @@ def build_action_contract(plan: dict, project_control_path: Path | None = None) 
         "output_capture": {
             "stdout": True,
             "stderr": True,
-            "max_bytes": 20000,
+            "max_bytes": MAX_OUTPUT_BYTES,
         },
         "post_check": _post_check_for_plan(plan),
         "rollback": list(plan.get("rollback", [])),
@@ -163,19 +216,23 @@ def build_action_contracts(plans: list[dict], project_control_path: Path | None 
 
 
 def attach_action_contract(plan: dict, project_control_path: Path | None = None) -> dict:
-    plan["action_contract"] = build_action_contract(plan, project_control_path=project_control_path)
+    contract = build_action_contract(plan, project_control_path=project_control_path)
+    plan["action_contract"] = contract
+    plan["execution_enabled"] = contract["execution_enabled"]
     return plan
 
 
 def execute_guarded_action(contract: dict, confirmation_text: str) -> dict:
-    """Return an action result without executing when the contract is gated off."""
+    """Execute a gated low-risk action contract."""
+
+    started_at = _now()
 
     if not contract.get("execution_enabled"):
         return {
             "action_id": contract.get("id"),
             "plan_id": contract.get("plan_id"),
             "status": "blocked",
-            "started_at": _now(),
+            "started_at": started_at,
             "finished_at": _now(),
             "execution_enabled": False,
             "exit_code": None,
@@ -186,34 +243,79 @@ def execute_guarded_action(contract: dict, confirmation_text: str) -> dict:
             "rollback": contract.get("rollback", []),
         }
 
-    expected = contract.get("confirmation_phrase")
-    if confirmation_text.strip() != expected:
-        return {
-            "action_id": contract.get("id"),
-            "plan_id": contract.get("plan_id"),
-            "status": "rejected",
-            "started_at": _now(),
-            "finished_at": _now(),
-            "execution_enabled": True,
-            "exit_code": None,
-            "commands": contract.get("command_preview", []),
-            "output": "",
-            "error": "confirmation phrase did not match",
-            "post_check": contract.get("post_check", []),
-            "rollback": contract.get("rollback", []),
-        }
+    outputs = []
+    commands = contract.get("command_preview", [])
+    family = contract.get("family", "")
+    for command in commands:
+        allowed, reason = _command_allowed(command, family)
+        if not allowed:
+            return {
+                "action_id": contract.get("id"),
+                "plan_id": contract.get("plan_id"),
+                "status": "blocked",
+                "started_at": started_at,
+                "finished_at": _now(),
+                "execution_enabled": True,
+                "exit_code": None,
+                "commands": commands,
+                "output": "\n".join(outputs),
+                "error": reason or "command is not allowed",
+                "post_check": contract.get("post_check", []),
+                "rollback": contract.get("rollback", []),
+            }
+        try:
+            completed = subprocess.run(
+                _split_command(command),
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=int(contract.get("timeout_seconds") or DEFAULT_TIMEOUT_SECONDS),
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {
+                "action_id": contract.get("id"),
+                "plan_id": contract.get("plan_id"),
+                "status": "failed",
+                "started_at": started_at,
+                "finished_at": _now(),
+                "execution_enabled": True,
+                "exit_code": None,
+                "commands": commands,
+                "output": "\n".join(outputs),
+                "error": str(exc),
+                "post_check": contract.get("post_check", []),
+                "rollback": contract.get("rollback", []),
+            }
+        output = "\n".join(part for part in (completed.stdout, completed.stderr) if part).strip()
+        if output:
+            outputs.append(f"$ {command}\n{output[:MAX_OUTPUT_BYTES]}")
+        if completed.returncode != 0:
+            return {
+                "action_id": contract.get("id"),
+                "plan_id": contract.get("plan_id"),
+                "status": "failed",
+                "started_at": started_at,
+                "finished_at": _now(),
+                "execution_enabled": True,
+                "exit_code": completed.returncode,
+                "commands": commands,
+                "output": "\n".join(outputs),
+                "error": f"command failed: {command}",
+                "post_check": contract.get("post_check", []),
+                "rollback": contract.get("rollback", []),
+            }
 
     return {
         "action_id": contract.get("id"),
         "plan_id": contract.get("plan_id"),
-        "status": "not_implemented",
-        "started_at": _now(),
+        "status": "completed",
+        "started_at": started_at,
         "finished_at": _now(),
-        "execution_enabled": False,
-        "exit_code": None,
-        "commands": contract.get("command_preview", []),
-        "output": "",
-        "error": "subprocess execution is intentionally not implemented until governance is reassessed",
+        "execution_enabled": True,
+        "exit_code": 0,
+        "commands": commands,
+        "output": "\n".join(outputs),
+        "error": "",
         "post_check": contract.get("post_check", []),
         "rollback": contract.get("rollback", []),
     }

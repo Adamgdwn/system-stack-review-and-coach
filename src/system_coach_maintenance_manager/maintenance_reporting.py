@@ -35,7 +35,7 @@ def _build_recommendations(findings: list[dict]) -> list[str]:
         )
     if actionable:
         recommendations.append(
-            "Action plans are approval-required previews. They are not executed automatically in this version."
+            "Action plans require user approval. Press Execute only after reviewing what the selected plan will do."
         )
     if not critical and not warnings:
         recommendations.append(
@@ -174,7 +174,7 @@ def _failed_services_plan(finding: dict, platform: str) -> dict:
         plan.update(
             {
                 "platform": "Linux",
-                "commands": ["systemctl --failed", "systemctl status <service-name>"],
+                "commands": ["systemctl --failed"],
                 "manual_steps": [
                     "Identify the named failed service before preparing a restart.",
                     "Read recent service logs and configuration errors first.",
@@ -418,6 +418,7 @@ def generate_maintenance_report(diagnostics: dict) -> dict:
         key=lambda finding: (SEVERITY_ORDER.get(finding["severity"], 99), finding["category"], finding["title"]),
     )
     action_plans = _build_action_plans(findings, _os_name_from_diagnostics(diagnostics))
+    execution_enabled = any(plan.get("execution_enabled") for plan in action_plans)
     return {
         "generated_at": diagnostics["generated_at"],
         "summary": {
@@ -425,7 +426,7 @@ def generate_maintenance_report(diagnostics: dict) -> dict:
             "status_counts": _status_counts(findings),
             "severity_counts": _severity_counts(findings),
             "approval_required_count": len(action_plans),
-            "execution_enabled": False,
+            "execution_enabled": execution_enabled,
         },
         "findings": findings,
         "action_plans": action_plans,

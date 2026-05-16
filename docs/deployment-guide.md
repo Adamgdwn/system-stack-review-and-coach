@@ -40,7 +40,7 @@ Because this is a local internal tool, staging and prod differ mainly by install
   - confirm the local AI status line reports Ollama health clearly
   - confirm the environment snapshot and component cards populate
   - confirm scan suggestions appear and an opt-in root scan returns project/config findings
-  - confirm the Request Desk prepares a plan and the Approval Queue shows exact commands with execution disabled
+  - confirm the Request Desk prepares a plan and the Approval Queue shows exact commands plus guarded execution state
   - confirm the History view shows the JSONL path and changed-since-last summary
   - confirm the Chat tab answers a question through the local model when available
   - confirm the command log shows local probe execution

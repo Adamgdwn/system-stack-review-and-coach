@@ -2,9 +2,9 @@
 
 ## Current State
 
-The project remains at governance level `1` with autonomy level `A1`. Action execution is disabled.
+The project remains at governance level `1` with autonomy level `A1`. Guarded action execution is enabled only when the user presses Execute and the selected plan passes the action-runner contract.
 
-Chunks 7 and 8 establish the contract, guarded catalog checks, UI visibility, history records, and blocked execution result shape. They do not enable subprocess execution.
+The Execute button is the user approval event. It runs only exact, low-risk, reversible, non-privileged commands in the guarded catalog. Some executable plans apply a current-user setting; others run read-only evidence commands so the next fix is grounded instead of guessed. Other plans remain visible for review and return blocked action results.
 
 ## Contract Fields
 
@@ -15,12 +15,12 @@ Each prepared maintenance or Request Desk plan may include `action_contract`:
 - `plan_id`: source plan id
 - `plan_title`: source plan title
 - `family`: request or maintenance family
-- `status`: current runner status, usually `blocked`
-- `eligible_for_guarded_execution`: whether the plan shape is narrow enough for future guarded execution
+- `status`: current runner status, such as `blocked`, `failed`, or `completed`
+- `eligible_for_guarded_execution`: whether the plan shape is narrow enough for guarded execution
 - `eligibility_notes`: reasons the plan is not eligible
 - `approval_required`: always `true`
-- `confirmation_phrase`: exact phrase a future runner would require
-- `execution_enabled`: currently `false`
+- `confirmation_phrase`: exact phrase preserved for audit and future stronger confirmation modes
+- `execution_enabled`: `true` only when the plan passes governance, autonomy, catalog, and command checks
 - `execution_gate`: reasons execution is blocked
 - `command_preview`: exact command strings from the plan
 - `expected_effect`: intended result
@@ -35,7 +35,7 @@ Each prepared maintenance or Request Desk plan may include `action_contract`:
 
 ## Guarded Candidate Rules
 
-A plan is eligible for future guarded execution only when all of these are true:
+A plan is eligible for guarded execution only when all of these are true:
 
 - approval is required
 - risk is `low`
@@ -44,6 +44,7 @@ A plan is eligible for future guarded execution only when all of these are true:
 - the plan family is in the low-risk guarded catalog
 - exact commands are present
 - commands do not contain placeholder text such as `<service-name>`
+- every command executable is in the guarded catalog
 
 The current low-risk catalog is:
 
@@ -53,26 +54,27 @@ The current low-risk catalog is:
 - display refresh rate
 - display scaling
 - audio routing
+- failed service evidence
+- critical log evidence
+- network and DNS evidence
 
 ## Execution Gate
 
-Even eligible plans remain blocked until governance is reassessed. The current gate requires:
+Eligible plans can execute when all gate checks pass:
 
-- governance level above `1`
-- autonomy above `A1`
+- governance level `1`
+- autonomy level `A1`
 - explicit `action_runner_enabled: true` in project controls
-- a matching confirmation phrase
-- an implemented subprocess runner
+- the Execute button is pressed by the user
+- every command runs through the subprocess runner with `shell=False`, strict timeout, and output capture
 
-The current implementation records blocked action attempts through the same local history mechanism used for diagnostics and request plans.
+The implementation records completed, failed, and blocked action attempts through the same local history mechanism used for diagnostics and request plans.
 
 ## Future Runner Requirements
 
-Before enabling execution:
+Before broadening execution:
 
-- reassess project risk, governance level, and autonomy level
-- add per-action confirmation in the UI
-- add subprocess execution with strict timeouts and output capture
+- reassess project risk, governance level, and autonomy level again
 - add post-check execution
 - add rollback prompts
 - add tests proving privileged and placeholder commands cannot run

@@ -2,14 +2,14 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, action-runner contracts with execution blocked, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, guarded low-risk action execution, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
 
 ## Chunk 1: Governance And Release Hygiene
 
 Status: completed.
 
-- Keep governance level `1` and autonomy level `A1`.
-- Keep execution disabled for generated maintenance and request plans.
+- Initially keep governance level `1` and autonomy level `A1`.
+- Initially keep execution disabled for generated maintenance and request plans.
 - Snapshot the current supervised maintenance milestone in version control.
 - Update the risk register for maintenance diagnostics, request planning, Windows/browser support, and approval-plan risks.
 - Remove stale governance-path references from exception/risk docs.
@@ -76,7 +76,7 @@ Status: completed.
 
 ## Chunk 7: Approved Action Runner Contract
 
-Status: completed, execution disabled.
+Status: completed.
 
 - Define the action-runner contract before implementation:
   - exact command preview
@@ -93,10 +93,20 @@ Status: completed, execution disabled.
 
 ## Chunk 8: Guarded Maintenance Actions
 
-Status: completed as gated scaffold; governance reassessment still required before execution.
+Status: completed.
 
 - Add a narrow action runner for reversible or low-risk maintenance tasks only after Chunk 7 is complete.
 - Require per-action confirmation and visible logs.
 - Start with user-space actions before any privileged actions.
 - Reassess risk, autonomy, documentation, and approval controls before enabling privileged operations.
 - Do not introduce autonomous execution until the tool has a long safety record.
+
+## Chunk 9: Guarded Execution Enablement
+
+Status: completed.
+
+- Keep project controls at governance level `1` and autonomy level `A1`, with `action_runner_enabled: true` for user-approved guarded execution.
+- Make the desktop Execute button run enabled low-risk plans instead of only showing blocked review text.
+- Keep execution limited to exact, reversible, non-privileged commands in the guarded catalog.
+- Keep privileged, destructive, placeholder, medium-risk, and unsupported plans blocked with visible reasons.
+- Record completed, failed, and blocked action attempts in local history.

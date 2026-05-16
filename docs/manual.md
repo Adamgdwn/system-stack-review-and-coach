@@ -14,7 +14,7 @@ The next product direction is to grow this into a system maintenance and trouble
 - Maintenance diagnostics run as read-only observations and recommendations.
 - Request Desk plans cover common troubleshooting families but remain approval-required previews.
 - The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
-- Approved-action contracts show the future execution shape, but execution is blocked under the current governance level.
+- Approved-action contracts gate execution. The Execute button runs only eligible low-risk plans after user approval.
 - Local history records diagnostic snapshots and request-plan previews for later review.
 - Any future repair or cleanup action must require explicit user approval before execution.
 
@@ -24,7 +24,7 @@ This project is set to governance level `1` with agent autonomy `A1`.
 
 In practical terms, the tool may inspect, summarize, and recommend. It may prepare changes or commands, but machine-changing actions require user approval before they are applied.
 
-The current build does not apply machine-changing actions. Action contracts are visible for review and audit, and blocked action attempts may be recorded in history.
+The current build can run eligible low-risk guarded plans when the user presses Execute. Plans that are privileged, destructive, unsupported, or not exact remain blocked and may be recorded in history.
 
 ## Common Workflows
 
@@ -33,7 +33,7 @@ The current build does not apply machine-changing actions. Action contracts are 
 3. Optionally scan selected roots to discover projects and configuration files.
 4. Ask the local coach questions about the detected stack or selected roots.
 5. Use the Request Desk for specific approval-required plans, such as changing cursor size, checking DNS, reviewing Docker cleanup, or triaging slow performance.
-6. Review the Approval Queue before considering any future execution path.
+6. Review the Approval Queue, then press Execute when the selected guarded plan is the one you want to run.
 7. Review the History view when comparing recent diagnostics or preparing a support handoff.
 8. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
 9. Copy a share summary when a plain-language environment overview is needed.

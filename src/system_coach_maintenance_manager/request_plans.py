@@ -221,7 +221,7 @@ def _cursor_plan(request_text: str, platform_name: str, platform_key: str, distr
             requires_privilege=False,
             summary="Prepare a current-user pointer size change through Windows Accessibility settings.",
             commands=[
-                "start ms-settings:easeofaccess-mousepointer",
+                'cmd /c start "" ms-settings:easeofaccess-mousepointer',
                 'powershell -NoProfile -Command "Start-Process ms-settings:easeofaccess-mousepointer"',
             ],
             manual_steps=[

@@ -6,10 +6,9 @@ from system_coach_maintenance_manager.request_plans import format_request_plan, 
 class RequestPlanTests(unittest.TestCase):
     def assert_approval_preview(self, plan):
         self.assertTrue(plan["approval_required"])
-        self.assertFalse(plan["execution_enabled"])
         self.assertIn("family", plan)
         self.assertIn("action_contract", plan)
-        self.assertFalse(plan["action_contract"]["execution_enabled"])
+        self.assertEqual(plan["execution_enabled"], plan["action_contract"]["execution_enabled"])
 
     def test_prepare_linux_cursor_plan_is_approval_required(self):
         plan = prepare_request_plan(
@@ -20,6 +19,7 @@ class RequestPlanTests(unittest.TestCase):
 
         self.assertEqual(plan["id"], "request-cursor-size-linux")
         self.assert_approval_preview(plan)
+        self.assertTrue(plan["execution_enabled"])
         self.assertFalse(plan["requires_privilege"])
         self.assertTrue(any("gsettings set" in command for command in plan["commands"]))
         self.assertIn("GNOME", plan["summary"])
@@ -30,6 +30,7 @@ class RequestPlanTests(unittest.TestCase):
         self.assertEqual(plan["id"], "request-cursor-size-linux")
         self.assertTrue(any("kcmshell" in command for command in plan["commands"]))
         self.assertFalse(any("gsettings set" in command for command in plan["commands"]))
+        self.assertTrue(plan["execution_enabled"])
 
     def test_prepare_cosmic_cursor_plan_uses_cosmic_settings(self):
         plan = prepare_request_plan("Make my cursor larger", os_name="Linux", distribution_hint="COSMIC")
