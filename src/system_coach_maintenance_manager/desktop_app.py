@@ -18,7 +18,7 @@ from .diagnostics import collect_diagnostics
 from .exporting import build_share_text
 from .followup_plans import build_followup_request
 from .maintenance_actions import execute_guarded_action
-from .maintenance_history import format_history, load_history, record_maintenance_report, record_request_plan
+from .maintenance_history import format_history, load_history, record_learning_note, record_maintenance_report, record_request_plan
 from .maintenance_history import record_action_result
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
@@ -937,7 +937,15 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 evidence = f"Collected {evidence_count} read-only evidence command(s) for: {', '.join(evidence_scopes)}."
             else:
                 evidence = "No extra request evidence was needed before preparing this plan."
-            why = reasoning.get("summary") or plan.get("summary", "The request matched a known maintenance family.")
+            why_parts = []
+            if reasoning.get("summary"):
+                why_parts.append(f"Current hypothesis: {reasoning['summary']}")
+            if reasoning.get("evidence_assessment"):
+                why_parts.append(f"Evidence check: {reasoning['evidence_assessment']}")
+            alternates = reasoning.get("alternate_families", [])
+            if alternates:
+                why_parts.append(f"Alternates to keep in mind: {', '.join(alternates)}")
+            why = "\n".join(why_parts) or plan.get("summary", "The request matched a known maintenance family.")
 
         if executable and changes_system:
             action = "Execute will apply this low-risk current-user setting change."
@@ -1137,6 +1145,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     ),
                 )
         else:
+            self._record_execution_learning(plan, result, analysis, None)
             gate_reasons = result.get("error") or "Execution is blocked by the current controls."
             body = "\n".join(
                 [
@@ -1163,6 +1172,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
     def _prepare_followup_plan_from_execution(self, plan: dict, result: dict, analysis: dict | None) -> dict | None:
         followup = build_followup_request(plan, result, analysis)
         if not followup:
+            self._record_execution_learning(plan, result, analysis, None)
             return None
 
         os_name, desktop_hint = self._request_environment_context()
@@ -1194,7 +1204,44 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 "Press Execute Current Recommendation to apply it, or type what you want changed and I will revise the plan."
             ),
         )
+        self._record_execution_learning(plan, result, analysis, followup_plan)
         return followup_plan
+
+    def _record_execution_learning(
+        self,
+        plan: dict,
+        result: dict,
+        analysis: dict | None,
+        followup_plan: dict | None,
+    ) -> None:
+        status = result.get("status", "unknown")
+        family = plan.get("family", "unknown")
+        if status == "completed" and followup_plan:
+            lesson = (
+                f"Evidence from {plan.get('title', family)} supported a next {followup_plan.get('family')} plan: "
+                f"{followup_plan.get('title')}."
+            )
+        elif status == "completed":
+            lesson = (
+                f"{plan.get('title', family)} completed but did not produce a concrete follow-up fix; "
+                "future runs should gather more specific evidence or ask for a narrower symptom."
+            )
+        else:
+            lesson = f"{plan.get('title', family)} ended with status {status}: {result.get('error', 'no error text')}"
+        if analysis and analysis.get("analysis"):
+            lesson = f"{lesson} Analysis: {analysis['analysis'][:500]}"
+        record_learning_note(
+            {
+                "family": family,
+                "status": status,
+                "plan_id": plan.get("id"),
+                "plan_title": plan.get("title"),
+                "lesson": lesson,
+                "followup_family": followup_plan.get("family") if followup_plan else None,
+                "action_id": result.get("action_id"),
+                "commands": result.get("commands", []),
+            }
+        )
 
     def on_review_findings(self, _button: Gtk.Button | None) -> None:
         self._show_maintenance_findings_dialog()
@@ -1261,12 +1308,14 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         force_plan: bool,
     ) -> None:
         evidence = collect_request_evidence(request_text, os_name=os_name, desktop_hint=desktop_hint)
+        history = load_history(limit=20)
         reasoning = reason_about_request(
             request_text,
             os_name=os_name,
             desktop_hint=desktop_hint,
             maintenance_report=maintenance_report,
             request_evidence=evidence,
+            learning_context=history.get("learning_notes", []) + history.get("known_good_lessons", []),
         )
         reasoning["request_evidence"] = evidence
         if not reasoning.get("ok"):
@@ -1276,6 +1325,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     "source": "deterministic-fallback",
                     "model": None,
                     "confidence": None,
+                    "alternate_families": [],
+                    "evidence_assessment": "Deterministic fallback used the request wording and collected read-only evidence only.",
                     "reasoning_summary": reasoning.get("reasoning_summary", ""),
                     "model_error": reasoning.get("acknowledgement", "Gemma request analysis was unavailable."),
                     "request_evidence": evidence,

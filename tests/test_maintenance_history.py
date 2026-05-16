@@ -6,6 +6,7 @@ from system_coach_maintenance_manager.maintenance_history import (
     format_history,
     load_history,
     record_approval_decision,
+    record_learning_note,
     record_maintenance_report,
     record_request_plan,
 )
@@ -39,16 +40,28 @@ class MaintenanceHistoryTests(unittest.TestCase):
             record_maintenance_report(report, base_dir=base_dir)
             record_request_plan(plan, base_dir=base_dir)
             record_approval_decision({"decision": "deferred", "plan_id": "plan-1"}, base_dir=base_dir)
+            record_learning_note(
+                {
+                    "family": "display-dock",
+                    "status": "completed",
+                    "lesson": "Rotated external display evidence led to a display layout fix.",
+                    "followup_family": "display-layout-fix",
+                },
+                base_dir=base_dir,
+            )
 
             history = load_history(base_dir=base_dir)
             formatted = format_history(history)
 
-        self.assertEqual(history["summary"]["record_count"], 3)
+        self.assertEqual(history["summary"]["record_count"], 4)
         self.assertEqual(history["summary"]["kind_counts"]["maintenance_report"], 1)
         self.assertEqual(history["summary"]["kind_counts"]["request_plan"], 1)
+        self.assertEqual(history["summary"]["kind_counts"]["learning_note"], 1)
         self.assertIn("no critical or warning findings", history["known_good_lessons"][0])
+        self.assertIn("Rotated external display", history["learning_notes"][0])
         self.assertIn("Not enough maintenance history", history["changed_since_last"][0])
         self.assertIn("network-dns", formatted)
+        self.assertIn("Learning notes", formatted)
 
     def test_history_summarizes_changes_between_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:

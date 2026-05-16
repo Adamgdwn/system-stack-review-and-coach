@@ -86,7 +86,9 @@ class AiEngineTests(unittest.TestCase):
                 "response": (
                     '{"family":"display-dock","ready":true,'
                     '"acknowledgement":"This looks like a docked display issue.",'
-                    '"questions":[],"reasoning_summary":"External rotated monitor via dock.",'
+                    '"questions":[],"alternate_families":["display"],'
+                    '"evidence_assessment":"Monitor evidence supports a display lane; logs could disprove dock involvement.",'
+                    '"reasoning_summary":"External rotated monitor via dock.",'
                     '"confidence":0.91}'
                 )
             },
@@ -95,12 +97,15 @@ class AiEngineTests(unittest.TestCase):
                 "My far right screen through the Dell dock is rotated and the cursor is jittery.",
                 os_name="Linux",
                 desktop_hint="COSMIC",
+                learning_context=["Previous rotated monitor evidence produced a layout fix."],
             )
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["source"], "gemma")
         self.assertEqual(result["model"], "gemma4:latest")
         self.assertEqual(result["family"], "display-dock")
+        self.assertEqual(result["alternate_families"], ["display"])
+        self.assertIn("supports", result["evidence_assessment"])
         self.assertTrue(result["ready"])
 
     def test_reason_about_request_rejects_unknown_model_family(self):

@@ -153,6 +153,7 @@ def reason_about_request(
     desktop_hint: str | None = None,
     maintenance_report: dict | None = None,
     request_evidence: dict | None = None,
+    learning_context: list[str] | None = None,
 ) -> dict[str, Any]:
     """Use the local model as the Request Desk reasoning layer.
 
@@ -201,16 +202,19 @@ def reason_about_request(
     prompt = "\n".join(
         [
             "You are Gemma acting as the thinking brain for System Coach and Maintenance Manager.",
-            "Classify the user's maintenance/troubleshooting request and decide whether enough detail exists for a guarded plan.",
+            "Build an evidence-based troubleshooting hypothesis for the user's maintenance request.",
+            "The family is the current investigation lane, not a final diagnosis. Evidence may overturn it later.",
             "Do not invent shell commands. Do not approve execution. The deterministic planner will choose commands later.",
             "Return only a JSON object with these keys:",
-            "family, ready, acknowledgement, questions, reasoning_summary, confidence",
+            "family, alternate_families, ready, acknowledgement, questions, evidence_assessment, reasoning_summary, confidence",
             "Allowed family values:",
             ", ".join(sorted(REQUEST_FAMILIES)),
             "",
             "Rules:",
-            "- Use display-dock for external monitor, dock, rotation, hidden screen area, DisplayLink, jittery pointer tied to a display, or compositor/display symptoms.",
+            "- Use display-dock as an investigation lane for external monitor, dock, rotation, hidden screen area, DisplayLink, jittery pointer tied to a display, or compositor/display symptoms.",
             "- Use cursor-size only when the request is specifically about pointer size or visibility without display/dock symptoms.",
+            "- List plausible alternate_families when the evidence could point somewhere else.",
+            "- In evidence_assessment, say what evidence supports the current lane and what could disprove it.",
             "- Use unknown with questions when the target is too vague.",
             "- Do not ask the user for facts already visible in the read-only request evidence.",
             "- If evidence includes device names, monitor names, routes, services, logs, or package output, use those facts directly.",
@@ -224,6 +228,7 @@ def reason_about_request(
             f"Desktop/session hint: {desktop_hint or 'unknown'}",
             f"Recent maintenance findings JSON: {json.dumps(findings, ensure_ascii=True)[:6000]}",
             f"Read-only request evidence JSON: {json.dumps(compact_evidence, ensure_ascii=True)[:10000]}",
+            f"Local learning notes JSON: {json.dumps((learning_context or [])[:8], ensure_ascii=True)[:4000]}",
             "",
             "User request:",
             request_text.strip(),
@@ -267,6 +272,10 @@ def reason_about_request(
     if not isinstance(questions, list):
         questions = []
     clean_questions = [str(item).strip() for item in questions if str(item).strip()][:3]
+    alternates = parsed.get("alternate_families", [])
+    if not isinstance(alternates, list):
+        alternates = []
+    clean_alternates = [str(item).strip() for item in alternates if str(item).strip() in REQUEST_FAMILIES and str(item).strip() != family][:4]
     acknowledgement = str(parsed.get("acknowledgement", "")).strip()
     if not acknowledgement:
         if evidence_family:
@@ -282,6 +291,8 @@ def reason_about_request(
         "ready": bool(parsed.get("ready") or (family != "unknown" and evidence_family)),
         "acknowledgement": acknowledgement,
         "questions": clean_questions,
+        "alternate_families": clean_alternates,
+        "evidence_assessment": str(parsed.get("evidence_assessment", "")).strip(),
         "reasoning_summary": str(parsed.get("reasoning_summary", "")).strip(),
         "confidence": parsed.get("confidence"),
     }
@@ -306,9 +317,10 @@ def analyze_action_result(plan: dict, result: dict) -> dict[str, Any]:
             "The user wants concise, useful troubleshooting, not generic caveats.",
             "Use the command output to explain what was found and the best next fix direction.",
             "Do not invent commands. Do not claim a fix was applied unless the result shows it.",
-            "If the action only collected evidence, say what the evidence points to and what the next guarded fix should be.",
+            "If the action only collected evidence, reassess the original hypothesis. Say what supports it, what contradicts it, and what the next guarded fix or investigation lane should be.",
             "Write plain text with these short sections:",
             "What I found",
+            "Hypothesis check",
             "Most likely cause",
             "Best next fix",
             "Can execute now",

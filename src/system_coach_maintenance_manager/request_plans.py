@@ -822,6 +822,8 @@ def _apply_reasoning_metadata(plan: dict, reasoning: dict | None) -> dict:
             "ready": reasoning.get("ready"),
             "confidence": reasoning.get("confidence"),
             "summary": reasoning.get("reasoning_summary", ""),
+            "evidence_assessment": reasoning.get("evidence_assessment", ""),
+            "alternate_families": reasoning.get("alternate_families", []),
             "evidence_scopes": reasoning.get("request_evidence", {}).get("scopes", []),
             "evidence_command_count": len(reasoning.get("request_evidence", {}).get("commands", [])),
         }
@@ -833,6 +835,8 @@ def _apply_reasoning_metadata(plan: dict, reasoning: dict | None) -> dict:
             "ready": True,
             "confidence": None,
             "summary": "Prepared by deterministic request rules.",
+            "evidence_assessment": "",
+            "alternate_families": [],
             "evidence_scopes": [],
             "evidence_command_count": 0,
         }

@@ -60,6 +60,7 @@ First response:
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
 - If an approval-required plan is generated, review the exact command, target, risk, and rollback before pressing Execute. Low-risk user-level plans can execute when the contract allows them; higher-risk or privileged plans stay blocked.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before pressing Execute.
+- If Request Desk appears to choose the wrong lane, read the Current Recommendation's hypothesis, evidence check, and alternate families; after execution, the app records a local learning note so later requests can improve.
 - If an action contract says execution is blocked, review the gate reasons; privileged, destructive, placeholder, unsupported, or higher-risk plans should remain blocked.
 - If history does not update, check directory permissions or set `SYSTEM_COACH_HISTORY_DIR` to a writable local path.
 - If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.

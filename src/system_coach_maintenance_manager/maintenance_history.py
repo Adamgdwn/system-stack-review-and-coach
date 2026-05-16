@@ -74,6 +74,15 @@ def _action_result_summary(result: dict) -> dict:
     }
 
 
+def _learning_note_summary(note: dict) -> dict:
+    return {
+        "family": note.get("family", "unknown"),
+        "status": note.get("status", "unknown"),
+        "lesson": str(note.get("lesson", ""))[:180],
+        "followup_family": note.get("followup_family"),
+    }
+
+
 def _summary_for(kind: str, payload: dict) -> dict:
     if kind == "maintenance_report":
         return _maintenance_summary(payload)
@@ -83,6 +92,8 @@ def _summary_for(kind: str, payload: dict) -> dict:
         return _approval_decision_summary(payload)
     if kind == "action_result":
         return _action_result_summary(payload)
+    if kind == "learning_note":
+        return _learning_note_summary(payload)
     return {"kind": kind}
 
 
@@ -118,6 +129,10 @@ def record_approval_decision(decision: dict, base_dir: Path | None = None) -> di
 
 def record_action_result(result: dict, base_dir: Path | None = None) -> dict:
     return append_history_record("action_result", result, base_dir=base_dir)
+
+
+def record_learning_note(note: dict, base_dir: Path | None = None) -> dict:
+    return append_history_record("learning_note", note, base_dir=base_dir)
 
 
 def _read_records(base_dir: Path | None = None) -> list[dict]:
@@ -159,6 +174,25 @@ def _known_good_lessons(records: list[dict]) -> list[str]:
             )
             break
     return lessons
+
+
+def _learning_notes(records: list[dict], limit: int = 8) -> list[str]:
+    notes = []
+    for record in reversed(records):
+        if record.get("kind") != "learning_note":
+            continue
+        payload = record.get("payload", {})
+        lesson = str(payload.get("lesson", "")).strip()
+        if not lesson:
+            continue
+        family = payload.get("family", "unknown")
+        status = payload.get("status", "unknown")
+        followup = payload.get("followup_family")
+        suffix = f"; next lane: {followup}" if followup else ""
+        notes.append(f"{record.get('recorded_at')}: {family} ended {status}: {lesson}{suffix}.")
+        if len(notes) >= limit:
+            break
+    return notes
 
 
 def _latest_maintenance_reports(records: list[dict], limit: int = 2) -> list[dict]:
@@ -222,6 +256,7 @@ def load_history(limit: int = 25, base_dir: Path | None = None) -> dict:
             "kind_counts": dict(counts),
         },
         "known_good_lessons": _known_good_lessons(records),
+        "learning_notes": _learning_notes(records),
         "changed_since_last": _changed_since_last(records),
         "records": recent,
     }
@@ -239,6 +274,12 @@ def format_history(history: dict) -> str:
     lines.extend(f"- {lesson}" for lesson in lessons)
     if not lessons:
         lines.append("- No evidence-backed known-good lessons yet.")
+
+    lines.extend(["", "Learning notes:"])
+    learning_notes = history.get("learning_notes", [])
+    lines.extend(f"- {lesson}" for lesson in learning_notes)
+    if not learning_notes:
+        lines.append("- No action-result learning notes yet.")
 
     lines.extend(["", "Changed since last diagnostic run:"])
     lines.extend(f"- {change}" for change in history.get("changed_since_last", []))
