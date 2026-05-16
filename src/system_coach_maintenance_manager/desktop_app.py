@@ -945,6 +945,11 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             alternates = reasoning.get("alternate_families", [])
             if alternates:
                 why_parts.append(f"Alternates to keep in mind: {', '.join(alternates)}")
+            steps = reasoning.get("investigation_steps", [])
+            if steps:
+                why_parts.append("Troubleshooting path:\n" + "\n".join(f"- {step}" for step in steps))
+            if reasoning.get("permission_plan"):
+                why_parts.append(f"Permission plan: {reasoning['permission_plan']}")
             why = "\n".join(why_parts) or plan.get("summary", "The request matched a known maintenance family.")
 
         if executable and changes_system:
@@ -1327,6 +1332,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     "confidence": None,
                     "alternate_families": [],
                     "evidence_assessment": "Deterministic fallback used the request wording and collected read-only evidence only.",
+                    "investigation_steps": fallback.get("questions", []),
+                    "permission_plan": "Prepare an approval-required plan before executing any change.",
                     "reasoning_summary": reasoning.get("reasoning_summary", ""),
                     "model_error": reasoning.get("acknowledgement", "Gemma request analysis was unavailable."),
                     "request_evidence": evidence,

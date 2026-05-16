@@ -6,6 +6,8 @@ The project remains at governance level `1` with autonomy level `A1`. Guarded ac
 
 The Execute button is the user approval event. It runs only exact, low-risk, reversible, non-privileged commands in the guarded catalog. Some executable plans apply a current-user setting; others run read-only evidence commands so the next fix is grounded instead of guessed. Other plans remain visible for review and return blocked action results.
 
+The reasoning layer may prepare plans that describe higher-risk, privileged, or broad system changes, but those plans do not automatically become executable. The action-runner contract remains the enforcement boundary between "the app can think through this" and "the app can run this now."
+
 ## Contract Fields
 
 Each prepared maintenance or Request Desk plan may include `action_contract`:

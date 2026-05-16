@@ -20,6 +20,7 @@ System Coach and Maintenance Manager is a local-only educational and maintenance
 - `src/system_coach_maintenance_manager/knowledge.py`: Contains built-in explanations for common development tools and stack pairings.
 - `src/system_coach_maintenance_manager/scanner.py`: Performs opt-in filesystem mapping for user-selected roots and discovers projects and config files.
 - `src/system_coach_maintenance_manager/reporting.py`: Converts raw probe results into learner-friendly summaries, recommendations, and stack pattern matches.
+- `src/system_coach_maintenance_manager/troubleshooting_model.py`: Defines the universal troubleshooting method and system-access assumptions used by Gemma prompts.
 - `src/system_coach_maintenance_manager/web/`: Browser UI assets for the interactive learning experience.
 - `launchers/`: Shell scripts for local execution and desktop installation.
 - `pyproject.toml`: Packaging metadata and console entry point.
@@ -63,6 +64,8 @@ No remote services are required, and no probe or filesystem results are transmit
 
 - ADR 0001 selects a local web GUI because `tkinter` was not available in the target Python environment.
 - Agent controls were reassessed to `A1` because the tool now uses bounded local probe agents to execute read-only inspection commands.
+- The Request Desk uses a universal troubleshooting method rather than issue-specific diagnosis prompts: restate the symptom, form hypotheses, gather local evidence, compare against known-good state, choose the smallest useful action, verify, and record the lesson.
+- System-access prompts tell Gemma it may reason from everything the local app can view and may prepare plans at any privilege/risk level, while deterministic governance decides whether a plan can execute now or must remain blocked/manual/admin-approved.
 - Filesystem mapping is opt-in and scope-based to avoid surprising broad scans across the machine.
 - Local AI coaching uses an on-device model through Ollama so stack questions can stay within the local environment.
 - Maintenance diagnostics remain read-only by default. Gemma is allowed to build and reassess hypotheses, but command selection and execution eligibility remain deterministic. Prepared plans require approval, and eligible guarded plans execute only when the user presses Execute.

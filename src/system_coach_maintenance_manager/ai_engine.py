@@ -8,6 +8,8 @@ from typing import Any
 import urllib.error
 import urllib.request
 
+from .troubleshooting_model import troubleshooting_prompt_block
+
 
 OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT = 45
@@ -146,6 +148,73 @@ def _family_from_evidence(evidence: dict | None) -> str | None:
     return None
 
 
+def build_request_reasoning_prompt(
+    request_text: str,
+    *,
+    os_name: str | None = None,
+    desktop_hint: str | None = None,
+    maintenance_report: dict | None = None,
+    request_evidence: dict | None = None,
+    learning_context: list[str] | None = None,
+) -> str:
+    findings = []
+    if maintenance_report:
+        for finding in maintenance_report.get("findings", [])[:8]:
+            findings.append(
+                {
+                    "title": finding.get("title"),
+                    "severity": finding.get("severity"),
+                    "summary": finding.get("summary"),
+                    "evidence": finding.get("evidence"),
+                }
+            )
+
+    compact_evidence = _compact_request_evidence(request_evidence)
+    return "\n".join(
+        [
+            "You are Gemma acting as the thinking brain for System Coach and Maintenance Manager.",
+            troubleshooting_prompt_block(),
+            "",
+            "Build an evidence-based troubleshooting hypothesis for the user's maintenance request.",
+            "The family is the current investigation lane, not a final diagnosis. Evidence may overturn it later.",
+            "Do not invent shell commands. Do not approve execution. The deterministic planner will choose commands later.",
+            "Return only a JSON object with these keys:",
+            (
+                "family, alternate_families, ready, acknowledgement, questions, evidence_assessment, "
+                "investigation_steps, permission_plan, reasoning_summary, confidence"
+            ),
+            "Allowed family values:",
+            ", ".join(sorted(REQUEST_FAMILIES)),
+            "",
+            "Reasoning rules:",
+            "- Choose the lane that gathers the most useful first evidence; do not treat the lane as the answer.",
+            "- Use display-dock as an investigation lane for external monitor, dock, rotation, hidden screen area, DisplayLink, jittery pointer tied to a display, or compositor/display symptoms.",
+            "- Use cursor-size only when the request is specifically about pointer size or visibility without display/dock symptoms.",
+            "- List plausible alternate_families when the evidence could point somewhere else.",
+            "- In evidence_assessment, say what evidence supports the current lane and what could disprove it.",
+            "- In investigation_steps, list the next 2-5 evidence or fix steps in order.",
+            "- In permission_plan, state what can run as the current user and what would need admin/manual approval.",
+            "- Use unknown with questions when the target is too vague.",
+            "- Do not ask the user for facts already visible in the read-only request evidence.",
+            "- If evidence includes device names, monitor names, routes, services, logs, or package output, use those facts directly.",
+            "- If read-only request evidence has a relevant scope, treat that as a strong hint for the first investigation lane.",
+            "- Keep acknowledgement plain and specific.",
+            "- Set ready=true when evidence is good enough to start a guarded investigation or fix plan.",
+            "- Ask questions only when the missing answer would change the plan family or safety decision.",
+            "- Ask at most two questions.",
+            "",
+            f"Operating system: {os_name or 'unknown'}",
+            f"Desktop/session hint: {desktop_hint or 'unknown'}",
+            f"Recent maintenance findings JSON: {json.dumps(findings, ensure_ascii=True)[:6000]}",
+            f"Read-only request evidence JSON: {json.dumps(compact_evidence, ensure_ascii=True)[:10000]}",
+            f"Local learning notes JSON: {json.dumps((learning_context or [])[:8], ensure_ascii=True)[:4000]}",
+            "",
+            "User request:",
+            request_text.strip(),
+        ]
+    )
+
+
 def reason_about_request(
     request_text: str,
     *,
@@ -186,53 +255,13 @@ def reason_about_request(
             "reasoning_summary": "Configured Gemma 4 request brain was not available.",
         }
 
-    findings = []
-    if maintenance_report:
-        for finding in maintenance_report.get("findings", [])[:8]:
-            findings.append(
-                {
-                    "title": finding.get("title"),
-                    "severity": finding.get("severity"),
-                    "summary": finding.get("summary"),
-                    "evidence": finding.get("evidence"),
-                }
-            )
-
-    compact_evidence = _compact_request_evidence(request_evidence)
-    prompt = "\n".join(
-        [
-            "You are Gemma acting as the thinking brain for System Coach and Maintenance Manager.",
-            "Build an evidence-based troubleshooting hypothesis for the user's maintenance request.",
-            "The family is the current investigation lane, not a final diagnosis. Evidence may overturn it later.",
-            "Do not invent shell commands. Do not approve execution. The deterministic planner will choose commands later.",
-            "Return only a JSON object with these keys:",
-            "family, alternate_families, ready, acknowledgement, questions, evidence_assessment, reasoning_summary, confidence",
-            "Allowed family values:",
-            ", ".join(sorted(REQUEST_FAMILIES)),
-            "",
-            "Rules:",
-            "- Use display-dock as an investigation lane for external monitor, dock, rotation, hidden screen area, DisplayLink, jittery pointer tied to a display, or compositor/display symptoms.",
-            "- Use cursor-size only when the request is specifically about pointer size or visibility without display/dock symptoms.",
-            "- List plausible alternate_families when the evidence could point somewhere else.",
-            "- In evidence_assessment, say what evidence supports the current lane and what could disprove it.",
-            "- Use unknown with questions when the target is too vague.",
-            "- Do not ask the user for facts already visible in the read-only request evidence.",
-            "- If evidence includes device names, monitor names, routes, services, logs, or package output, use those facts directly.",
-            "- If read-only request evidence has a relevant scope, treat that as a strong hint for the family.",
-            "- Keep acknowledgement plain and specific.",
-            "- Set ready=true when evidence is good enough to start a guarded investigation or fix plan.",
-            "- Ask questions only when the missing answer would change the plan family or safety decision.",
-            "- Ask at most two questions.",
-            "",
-            f"Operating system: {os_name or 'unknown'}",
-            f"Desktop/session hint: {desktop_hint or 'unknown'}",
-            f"Recent maintenance findings JSON: {json.dumps(findings, ensure_ascii=True)[:6000]}",
-            f"Read-only request evidence JSON: {json.dumps(compact_evidence, ensure_ascii=True)[:10000]}",
-            f"Local learning notes JSON: {json.dumps((learning_context or [])[:8], ensure_ascii=True)[:4000]}",
-            "",
-            "User request:",
-            request_text.strip(),
-        ]
+    prompt = build_request_reasoning_prompt(
+        request_text,
+        os_name=os_name,
+        desktop_hint=desktop_hint,
+        maintenance_report=maintenance_report,
+        request_evidence=request_evidence,
+        learning_context=learning_context,
     )
 
     try:
@@ -276,6 +305,10 @@ def reason_about_request(
     if not isinstance(alternates, list):
         alternates = []
     clean_alternates = [str(item).strip() for item in alternates if str(item).strip() in REQUEST_FAMILIES and str(item).strip() != family][:4]
+    investigation_steps = parsed.get("investigation_steps", [])
+    if not isinstance(investigation_steps, list):
+        investigation_steps = []
+    clean_investigation_steps = [str(item).strip() for item in investigation_steps if str(item).strip()][:5]
     acknowledgement = str(parsed.get("acknowledgement", "")).strip()
     if not acknowledgement:
         if evidence_family:
@@ -293,6 +326,8 @@ def reason_about_request(
         "questions": clean_questions,
         "alternate_families": clean_alternates,
         "evidence_assessment": str(parsed.get("evidence_assessment", "")).strip(),
+        "investigation_steps": clean_investigation_steps,
+        "permission_plan": str(parsed.get("permission_plan", "")).strip(),
         "reasoning_summary": str(parsed.get("reasoning_summary", "")).strip(),
         "confidence": parsed.get("confidence"),
     }
@@ -314,6 +349,8 @@ def analyze_action_result(plan: dict, result: dict) -> dict[str, Any]:
     prompt = "\n".join(
         [
             "You are Gemma acting as the maintenance reasoning brain after an approved Execute action.",
+            troubleshooting_prompt_block(),
+            "",
             "The user wants concise, useful troubleshooting, not generic caveats.",
             "Use the command output to explain what was found and the best next fix direction.",
             "Do not invent commands. Do not claim a fix was applied unless the result shows it.",

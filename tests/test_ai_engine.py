@@ -4,6 +4,7 @@ from unittest.mock import patch
 from system_coach_maintenance_manager.ai_engine import (
     analyze_action_result,
     build_context,
+    build_request_reasoning_prompt,
     choose_model,
     choose_request_brain_model,
     reason_about_request,
@@ -76,6 +77,21 @@ class AiEngineTests(unittest.TestCase):
         self.assertIn("Maintenance diagnostics", context)
         self.assertIn("Latest user-requested approval plan", context)
 
+    def test_request_prompt_contains_universal_troubleshooting_method(self):
+        prompt = build_request_reasoning_prompt(
+            "The monitor on the right is behaving oddly.",
+            os_name="Linux",
+            desktop_hint="COSMIC",
+            request_evidence={"scopes": ["display-dock"], "commands": []},
+            learning_context=["A prior display lane needed a layout fix."],
+        )
+
+        self.assertIn("System access model", prompt)
+        self.assertIn("Troubleshooting method", prompt)
+        self.assertIn("Build multiple hypotheses", prompt)
+        self.assertIn("permission_plan", prompt)
+        self.assertIn("The family is the current investigation lane, not a final diagnosis", prompt)
+
     def test_reason_about_request_uses_gemma_structured_json(self):
         with patch(
             "system_coach_maintenance_manager.ai_engine._get_json",
@@ -88,6 +104,8 @@ class AiEngineTests(unittest.TestCase):
                     '"acknowledgement":"This looks like a docked display issue.",'
                     '"questions":[],"alternate_families":["display"],'
                     '"evidence_assessment":"Monitor evidence supports a display lane; logs could disprove dock involvement.",'
+                    '"investigation_steps":["Read monitor topology","Compare right monitor with siblings"],'
+                    '"permission_plan":"Read-only evidence can run now; display changes need Execute approval.",'
                     '"reasoning_summary":"External rotated monitor via dock.",'
                     '"confidence":0.91}'
                 )
@@ -106,6 +124,8 @@ class AiEngineTests(unittest.TestCase):
         self.assertEqual(result["family"], "display-dock")
         self.assertEqual(result["alternate_families"], ["display"])
         self.assertIn("supports", result["evidence_assessment"])
+        self.assertEqual(result["investigation_steps"][0], "Read monitor topology")
+        self.assertIn("Execute approval", result["permission_plan"])
         self.assertTrue(result["ready"])
 
     def test_reason_about_request_rejects_unknown_model_family(self):
