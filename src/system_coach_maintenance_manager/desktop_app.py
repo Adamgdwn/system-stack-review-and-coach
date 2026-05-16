@@ -407,6 +407,12 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.prepare_request_button.connect("clicked", self.on_prepare_request_plan)
         action_row.add(self.prepare_request_button)
 
+        self.execute_request_button = Gtk.Button(label="Execute Current Recommendation")
+        self.execute_request_button.set_tooltip_text("Run the current recommendation when its guarded contract is enabled.")
+        self.execute_request_button.set_sensitive(False)
+        self.execute_request_button.connect("clicked", self.on_execute_current_request)
+        action_row.add(self.execute_request_button)
+
         self.clear_request_button = Gtk.Button(label="Clear Conversation")
         self.clear_request_button.connect("clicked", self.on_clear_request_conversation)
         action_row.add(self.clear_request_button)
@@ -816,8 +822,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             self.approval_plan_picker.append_text("No queued plans")
             self.approval_plan_picker.set_active(0)
             self.review_action_button.set_sensitive(False)
-            self.execute_action_button.set_sensitive(False)
-            self.execute_nav_button.set_sensitive(False)
+            self._set_execution_buttons_sensitive(False)
             self.execution_gate_label.set_text("Execution is locked. Prepare a request plan or run diagnostics to review a queued fix.")
             if hasattr(self, "approval_selected_view"):
                 self._set_text(self.approval_selected_view, "")
@@ -827,8 +832,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             self.approval_plan_picker.append_text(f"{index}. {plan['title']}")
         self.approval_plan_picker.set_active(0)
         self.review_action_button.set_sensitive(True)
-        self.execute_action_button.set_sensitive(True)
-        self.execute_nav_button.set_sensitive(True)
+        self._set_execution_buttons_sensitive(True)
         self._refresh_selected_plan_preview()
 
     def _refresh_selected_plan_preview(self) -> None:
@@ -857,6 +861,14 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         if index < 0 or index >= len(self.queued_plans):
             return None
         return self.queued_plans[index]
+
+    def _set_execution_buttons_sensitive(self, sensitive: bool) -> None:
+        if hasattr(self, "execute_action_button"):
+            self.execute_action_button.set_sensitive(sensitive and bool(self.queued_plans))
+        if hasattr(self, "execute_nav_button"):
+            self.execute_nav_button.set_sensitive(sensitive and bool(self.queued_plans))
+        if hasattr(self, "execute_request_button"):
+            self.execute_request_button.set_sensitive(sensitive and self.current_request_plan is not None)
 
     def _show_action_dialog(self, title: str, body: str, entry_text: str | None = None) -> str | None:
         dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
@@ -1029,7 +1041,6 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self._show_action_dialog("Review Selected Plan", body)
 
     def on_execute_selected_action(self, _button: Gtk.Button | None) -> None:
-        self.notebook.set_current_page(5)
         plan = self._selected_queued_plan()
         if not plan:
             self._set_status("Prepare a request plan or run diagnostics before reviewing execution.")
@@ -1038,11 +1049,34 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 "No approval-required fix is queued yet. Use Request Desk to describe a specific request, or run maintenance diagnostics to populate the Approval Queue.",
             )
             return
+        self._start_plan_execution(plan)
+
+    def on_execute_current_request(self, _button: Gtk.Button | None) -> None:
+        if not self.current_request_plan:
+            self._set_status("Prepare a recommendation before executing.")
+            self._show_action_dialog(
+                "No Recommendation Ready",
+                "Request Desk has not prepared a current recommendation yet. Describe the issue first.",
+            )
+            return
+        self._start_plan_execution(self.current_request_plan)
+
+    def _start_plan_execution(self, plan: dict) -> None:
+        self._set_status("Executing the selected recommendation...")
+        self._set_execution_buttons_sensitive(False)
+        threading.Thread(target=self._execute_plan_worker, args=(plan,), daemon=True).start()
+
+    def _execute_plan_worker(self, plan: dict) -> None:
         contract = plan.get("action_contract", {})
         result = execute_guarded_action(contract, "")
         record_action_result(result)
+        analysis = analyze_action_result(plan, result) if result["status"] == "completed" else None
+        GLib.idle_add(self._apply_execution_result, plan, result, analysis)
+
+    def _apply_execution_result(self, plan: dict, result: dict, analysis: dict | None) -> bool:
+        contract = plan.get("action_contract", {})
         if result["status"] == "completed":
-            analysis = analyze_action_result(plan, result)
+            analysis = analysis or {}
             analysis_label = f"Gemma analysis [{analysis.get('model')}]" if analysis.get("model") else "Gemma analysis"
             body = "\n".join(
                 [
@@ -1061,7 +1095,19 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                     *(f"- {item}" for item in result.get("post_check", [])),
                 ]
             )
-            status = "Selected fix executed. Review the post-check notes."
+            status = "Execution completed. Gemma analyzed the output."
+            if plan is self.current_request_plan:
+                self._set_text(
+                    self.request_plan_view,
+                    "\n".join(
+                        [
+                            self._plain_plan_summary(plan),
+                            "",
+                            "Execution Result:",
+                            analysis.get("analysis", "No analysis was returned."),
+                        ]
+                    ),
+                )
         else:
             gate_reasons = result.get("error") or "Execution is blocked by the current controls."
             body = "\n".join(
@@ -1082,7 +1128,9 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self._show_action_dialog("Execute Selected Fix", body)
         self._refresh_history_view()
         self._refresh_approval_queue()
+        self._set_execution_buttons_sensitive(True)
         self._set_status(status)
+        return False
 
     def on_review_findings(self, _button: Gtk.Button | None) -> None:
         self._show_maintenance_findings_dialog()
@@ -1132,6 +1180,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         os_name, desktop_hint = self._request_environment_context()
         self.request_send_button.set_sensitive(False)
         self.prepare_request_button.set_sensitive(False)
+        self.execute_request_button.set_sensitive(False)
         self._set_status("Gemma is thinking through the request...")
         threading.Thread(
             target=self._request_brain_worker,
@@ -1175,6 +1224,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.latest_request_reasoning = reasoning
         self.request_send_button.set_sensitive(True)
         self.prepare_request_button.set_sensitive(True)
+        self.execute_request_button.set_sensitive(self.current_request_plan is not None)
 
         source = reasoning.get("source", "deterministic")
         model = reasoning.get("model")
@@ -1229,6 +1279,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             reasoning=reasoning,
         )
         self.current_request_plan = plan
+        self.execute_request_button.set_sensitive(True)
         record_request_plan(plan)
         formatted = format_request_plan(plan)
         self._set_text(self.request_plan_view, self._plain_plan_summary(plan))
@@ -1253,6 +1304,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self._set_text(self.request_plan_view, "")
         self.current_request_plan = None
         self.latest_request_reasoning = None
+        self.execute_request_button.set_sensitive(False)
         self._refresh_approval_queue()
         self._set_status("Request Desk conversation cleared.")
 

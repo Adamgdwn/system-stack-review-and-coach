@@ -38,10 +38,11 @@ After an eligible plan runs, Gemma reviews the captured output and summarizes wh
 4. Ask the local coach questions about the detected stack or selected roots.
 5. Use Request Desk as a conversation. Type a request, press Enter or Send, answer any follow-up questions, and let the desk prepare a guarded plan from the accumulated context.
 6. Read the Current Recommendation for the problem, evidence, recommended action, and execution status.
-7. Review the Approval Queue, then press Execute when the selected guarded plan is the one you want to run.
-8. Review the History view when comparing recent diagnostics or preparing a support handoff.
-9. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
-10. Copy a share summary when a plain-language environment overview is needed.
+7. Press Execute Current Recommendation from Request Desk when the current guarded plan is the one you want to run.
+8. Use the Approval Queue when choosing between multiple maintenance and request plans.
+9. Review the History view when comparing recent diagnostics or preparing a support handoff.
+10. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
+11. Copy a share summary when a plain-language environment overview is needed.
 
 ## Maintenance Direction
 

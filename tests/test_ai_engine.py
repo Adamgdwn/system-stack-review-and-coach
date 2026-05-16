@@ -141,6 +141,28 @@ class AiEngineTests(unittest.TestCase):
         self.assertTrue(result["ready"])
         self.assertIn("network-dns", result["acknowledgement"])
 
+    def test_reason_about_request_preserves_display_dock_scope_when_model_says_display(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "gemma4:latest"}]},
+        ), patch(
+            "system_coach_maintenance_manager.ai_engine._post_json",
+            return_value={
+                "response": (
+                    '{"family":"display","ready":true,'
+                    '"acknowledgement":"This is a display problem.",'
+                    '"questions":[],"reasoning_summary":"Evidence shows docked display behavior."}'
+                )
+            },
+        ):
+            result = reason_about_request(
+                "Monitor through dock is rotated and jittery.",
+                os_name="Linux",
+                request_evidence={"scopes": ["display-dock"], "commands": [{"command": "xrandr --query", "output": "DVI-I-1 rotate90"}]},
+            )
+
+        self.assertEqual(result["family"], "display-dock")
+
     def test_reason_about_request_does_not_use_non_gemma_model(self):
         with patch(
             "system_coach_maintenance_manager.ai_engine._get_json",

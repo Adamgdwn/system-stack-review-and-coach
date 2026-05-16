@@ -258,7 +258,9 @@ def reason_about_request(
     if family not in REQUEST_FAMILIES:
         family = "unknown"
     evidence_family = _family_from_evidence(request_evidence)
-    if family == "unknown" and evidence_family:
+    if evidence_family == "display-dock" and family in {"unknown", "display", "cursor-size"}:
+        family = evidence_family
+    elif family == "unknown" and evidence_family:
         family = evidence_family
     questions = parsed.get("questions", [])
     if not isinstance(questions, list):

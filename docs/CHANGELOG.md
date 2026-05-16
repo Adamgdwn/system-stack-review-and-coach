@@ -6,6 +6,8 @@
 - Added universal read-only Request Desk evidence collection so Gemma can inspect relevant local facts before asking the user for details.
 - Added Gemma post-execute analysis so completed guarded actions explain what was found, the likely cause, and the best next fix direction instead of only showing raw command output.
 - Cleaned the desktop Request Desk and Approval Queue into a recommendation-first flow with compact prompt buttons, selected-fix review, and a shorter queue list.
+- Added in-place Request Desk execution for the current recommendation and moved guarded execution plus Gemma output analysis off the GTK UI thread.
+- Preserved display/dock request classification when read-only evidence shows docked monitor behavior, even if the model labels it as generic display.
 - Added a guarded display/dock investigation path so rotated external monitors, docked displays, hidden screen areas, and jittery cursor reports collect real topology, dock, GPU, and compositor evidence instead of collapsing into cursor-size changes.
 - Turned Request Desk into a guided conversation with Send, Enter-to-send, follow-up questions, and plan preparation from accumulated context.
 - Enabled guarded low-risk action execution from the desktop Execute button when project controls allow it.

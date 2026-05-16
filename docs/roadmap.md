@@ -132,3 +132,4 @@ Status: completed.
 - Keep command selection, execution eligibility, approval controls, and guarded catalog enforcement outside the model.
 - Analyze completed guarded action output with Gemma so Execute produces useful findings and next-fix direction.
 - Simplify the desktop Request Desk and Approval Queue so the default view is a plain-language current recommendation and selected-fix card.
+- Add Request Desk in-place execution so the user does not have to switch tabs to run the current guarded recommendation.
