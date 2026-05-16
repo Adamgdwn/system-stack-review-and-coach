@@ -49,3 +49,4 @@ agent_controls:
   prompt_registry:
     - local-probe-agent-command-set
     - local-ai-coach-system-prompt
+    - gemma-request-desk-reasoning-prompt

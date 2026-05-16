@@ -1,6 +1,6 @@
 import unittest
 
-from system_coach_maintenance_manager.request_plans import format_request_plan, prepare_request_plan
+from system_coach_maintenance_manager.request_plans import format_request_plan, prepare_request_plan, review_request_intake
 
 
 class RequestPlanTests(unittest.TestCase):
@@ -73,6 +73,45 @@ class RequestPlanTests(unittest.TestCase):
         self.assert_approval_preview(plan)
         self.assertIn("xrandr --query", plan["commands"])
 
+    def test_prepare_display_dock_investigation_does_not_collapse_to_cursor_size(self):
+        plan = prepare_request_plan(
+            "The screen on my far right is rotated 90 degrees through the Dell docking station, "
+            "hides the bottom half, and the cursor movement is jittery.",
+            os_name="Linux",
+            distribution_hint="COSMIC",
+        )
+
+        self.assertEqual(plan["id"], "request-display-dock-linux")
+        self.assertEqual(plan["family"], "display-dock")
+        self.assert_approval_preview(plan)
+        self.assertTrue(plan["execution_enabled"])
+        self.assertIn("cosmic-randr list", plan["commands"])
+        self.assertIn("lsusb", plan["commands"])
+        self.assertIn("journalctl -b -n 500 --no-pager", plan["commands"])
+        self.assertIn("not a cursor-size change", plan["summary"])
+
+    def test_prepare_plan_accepts_gemma_family_override(self):
+        reasoning = {
+            "source": "gemma",
+            "model": "gemma4:latest",
+            "family": "display-dock",
+            "ready": True,
+            "confidence": 0.88,
+            "reasoning_summary": "Gemma identified docked display behavior.",
+        }
+        plan = prepare_request_plan(
+            "The cursor keeps disappearing while dragging windows.",
+            os_name="Linux",
+            distribution_hint="COSMIC",
+            family_override="display-dock",
+            reasoning=reasoning,
+        )
+
+        self.assertEqual(plan["family"], "display-dock")
+        self.assertEqual(plan["reasoning_brain"]["source"], "gemma")
+        self.assertEqual(plan["reasoning_brain"]["model"], "gemma4:latest")
+        self.assertIn("Reasoning brain: gemma (gemma4:latest)", format_request_plan(plan))
+
     def test_prepare_audio_plan(self):
         plan = prepare_request_plan("Switch my microphone input", os_name="Linux")
 
@@ -124,6 +163,36 @@ class RequestPlanTests(unittest.TestCase):
         self.assertEqual(plan["id"], "request-needs-triage")
         self.assert_approval_preview(plan)
         self.assertIn("No commands prepared yet", formatted)
+
+    def test_request_intake_asks_for_unknown_target(self):
+        intake = review_request_intake("the blue sparkle thing is weird")
+
+        self.assertFalse(intake["ready"])
+        self.assertEqual(intake["family"], "unknown")
+        self.assertTrue(intake["questions"])
+
+    def test_request_intake_accepts_cursor_investigation(self):
+        intake = review_request_intake("When I move things around it is jittery and loses the cursor. Can you investigate?")
+
+        self.assertTrue(intake["ready"])
+        self.assertEqual(intake["family"], "cursor-size")
+        self.assertIn("checking safe pointer settings", intake["acknowledgement"])
+
+    def test_request_intake_routes_display_dock_cursor_symptoms_to_deep_investigation(self):
+        intake = review_request_intake(
+            "My far right screen through the Dell dock is rotated and the cursor is jittery."
+        )
+
+        self.assertTrue(intake["ready"])
+        self.assertEqual(intake["family"], "display-dock")
+        self.assertIn("display, dock, and compositor", intake["acknowledgement"])
+
+    def test_request_intake_clarifies_vague_cursor_change(self):
+        intake = review_request_intake("My cursor seems odd")
+
+        self.assertFalse(intake["ready"])
+        self.assertEqual(intake["family"], "cursor-size")
+        self.assertTrue(any("smaller" in question for question in intake["questions"]))
 
     def test_supported_family_on_unknown_platform_triages_without_commands(self):
         plan = prepare_request_plan("Fix my DNS", os_name="Haiku")

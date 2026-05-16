@@ -11,13 +11,14 @@ import threading
 import webbrowser
 
 from .agents import build_agents
-from .ai_engine import answer_question
+from .ai_engine import answer_question, reason_about_request
 from .diagnostics import collect_diagnostics
 from .maintenance_actions import build_action_contract, execute_guarded_action
 from .maintenance_history import load_history, record_maintenance_report, record_request_plan
 from .maintenance_history import record_action_result
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
+from .request_evidence import collect_request_evidence
 from .request_plans import prepare_request_plan
 from .scanner import map_filesystem, suggest_roots
 
@@ -86,10 +87,36 @@ class SystemCoachHandler(SimpleHTTPRequestHandler):
             request_text = str(payload.get("request", ""))
             os_name = payload.get("os_name")
             desktop_hint = payload.get("desktop_hint")
+            maintenance_report = payload.get("maintenance_report")
+            evidence = collect_request_evidence(
+                request_text,
+                os_name=str(os_name) if os_name else None,
+                desktop_hint=str(desktop_hint) if desktop_hint else None,
+            )
+            reasoning = reason_about_request(
+                request_text,
+                os_name=str(os_name) if os_name else None,
+                desktop_hint=str(desktop_hint) if desktop_hint else None,
+                maintenance_report=maintenance_report if isinstance(maintenance_report, dict) else None,
+                request_evidence=evidence,
+            )
+            reasoning["request_evidence"] = evidence
+            if not reasoning.get("ok"):
+                reasoning = {
+                    "source": "deterministic-fallback",
+                    "model": None,
+                    "family": None,
+                    "ready": True,
+                    "confidence": None,
+                    "reasoning_summary": reasoning.get("reasoning_summary", ""),
+                    "request_evidence": evidence,
+                }
             plan = prepare_request_plan(
                 request_text,
                 os_name=str(os_name) if os_name else None,
                 distribution_hint=str(desktop_hint) if desktop_hint else None,
+                family_override=reasoning.get("family"),
+                reasoning=reasoning,
             )
             record_request_plan(plan)
             self._send_json(plan)

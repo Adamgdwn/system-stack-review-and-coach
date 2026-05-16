@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 import urllib.error
 import urllib.request
@@ -11,6 +12,19 @@ import urllib.request
 OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT = 45
 PREFERRED_MODELS = ["gemma4:latest", "gemma4", "gemma4:e4b", "qwen3:8b", "qwen3", "llama3.1:8b", "mistral"]
+REQUEST_BRAIN_MODELS = ["gemma4:latest", "gemma4", "gemma4:e4b"]
+REQUEST_FAMILIES = {
+    "unknown",
+    "cursor-size",
+    "display",
+    "display-dock",
+    "audio-routing",
+    "network-dns",
+    "package-updates",
+    "docker-cleanup",
+    "startup-apps",
+    "slow-computer",
+}
 
 
 def _post_json(path: str, payload: dict[str, Any], timeout: int = DEFAULT_TIMEOUT) -> dict[str, Any]:
@@ -68,6 +82,259 @@ def choose_model(models: list[str]) -> str | None:
         if preferred in models:
             return preferred
     return models[0]
+
+
+def choose_request_brain_model(models: list[str]) -> str | None:
+    if not models:
+        return None
+    for preferred in REQUEST_BRAIN_MODELS:
+        if preferred in models:
+            return preferred
+    return None
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?", "", stripped, flags=re.IGNORECASE).strip()
+        stripped = re.sub(r"```$", "", stripped).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", stripped, flags=re.DOTALL)
+        if not match:
+            raise
+        parsed = json.loads(match.group(0))
+    if not isinstance(parsed, dict):
+        raise ValueError("model response was not a JSON object")
+    return parsed
+
+
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+
+
+def _compact_request_evidence(evidence: dict | None) -> dict:
+    if not evidence:
+        return {}
+    compact = {
+        "generated_at": evidence.get("generated_at"),
+        "os": evidence.get("os"),
+        "desktop_hint": evidence.get("desktop_hint"),
+        "scopes": evidence.get("scopes", []),
+        "facts": evidence.get("facts", {}),
+        "commands": [],
+    }
+    for command in evidence.get("commands", [])[:12]:
+        compact["commands"].append(
+            {
+                "command": command.get("command"),
+                "exit_code": command.get("exit_code"),
+                "output_excerpt": _strip_ansi(str(command.get("output", "")))[:1200],
+            }
+        )
+    return compact
+
+
+def _family_from_evidence(evidence: dict | None) -> str | None:
+    if not evidence:
+        return None
+    for scope in evidence.get("scopes", []):
+        if scope in REQUEST_FAMILIES and scope != "unknown":
+            return scope
+    return None
+
+
+def reason_about_request(
+    request_text: str,
+    *,
+    os_name: str | None = None,
+    desktop_hint: str | None = None,
+    maintenance_report: dict | None = None,
+    request_evidence: dict | None = None,
+) -> dict[str, Any]:
+    """Use the local model as the Request Desk reasoning layer.
+
+    The model may classify and explain a request, but it cannot supply executable
+    commands. Command selection stays inside the guarded planner.
+    """
+
+    status = get_engine_status()
+    if not status["available"]:
+        return {
+            "ok": False,
+            "source": "unavailable",
+            "model": None,
+            "family": "unknown",
+            "ready": False,
+            "acknowledgement": status["message"],
+            "questions": ["Start Ollama with the configured Gemma model, or prepare a plan from deterministic rules."],
+            "reasoning_summary": "Local model was not available.",
+        }
+    request_model = choose_request_brain_model(status.get("models", []))
+    if not request_model:
+        return {
+            "ok": False,
+            "source": "unavailable",
+            "model": None,
+            "family": "unknown",
+            "ready": False,
+            "acknowledgement": "Gemma 4 is not available in Ollama, so the Request Desk reasoning brain is offline.",
+            "questions": ["Install or start the configured gemma4:latest model, then try the Request Desk again."],
+            "reasoning_summary": "Configured Gemma 4 request brain was not available.",
+        }
+
+    findings = []
+    if maintenance_report:
+        for finding in maintenance_report.get("findings", [])[:8]:
+            findings.append(
+                {
+                    "title": finding.get("title"),
+                    "severity": finding.get("severity"),
+                    "summary": finding.get("summary"),
+                    "evidence": finding.get("evidence"),
+                }
+            )
+
+    compact_evidence = _compact_request_evidence(request_evidence)
+    prompt = "\n".join(
+        [
+            "You are Gemma acting as the thinking brain for System Coach and Maintenance Manager.",
+            "Classify the user's maintenance/troubleshooting request and decide whether enough detail exists for a guarded plan.",
+            "Do not invent shell commands. Do not approve execution. The deterministic planner will choose commands later.",
+            "Return only a JSON object with these keys:",
+            "family, ready, acknowledgement, questions, reasoning_summary, confidence",
+            "Allowed family values:",
+            ", ".join(sorted(REQUEST_FAMILIES)),
+            "",
+            "Rules:",
+            "- Use display-dock for external monitor, dock, rotation, hidden screen area, DisplayLink, jittery pointer tied to a display, or compositor/display symptoms.",
+            "- Use cursor-size only when the request is specifically about pointer size or visibility without display/dock symptoms.",
+            "- Use unknown with questions when the target is too vague.",
+            "- Do not ask the user for facts already visible in the read-only request evidence.",
+            "- If evidence includes device names, monitor names, routes, services, logs, or package output, use those facts directly.",
+            "- If read-only request evidence has a relevant scope, treat that as a strong hint for the family.",
+            "- Keep acknowledgement plain and specific.",
+            "- Set ready=true when evidence is good enough to start a guarded investigation or fix plan.",
+            "- Ask questions only when the missing answer would change the plan family or safety decision.",
+            "- Ask at most two questions.",
+            "",
+            f"Operating system: {os_name or 'unknown'}",
+            f"Desktop/session hint: {desktop_hint or 'unknown'}",
+            f"Recent maintenance findings JSON: {json.dumps(findings, ensure_ascii=True)[:6000]}",
+            f"Read-only request evidence JSON: {json.dumps(compact_evidence, ensure_ascii=True)[:10000]}",
+            "",
+            "User request:",
+            request_text.strip(),
+        ]
+    )
+
+    try:
+        data = _post_json(
+            "/api/generate",
+            {
+                "model": request_model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": 0.1},
+            },
+            timeout=30,
+        )
+        parsed = _extract_json_object(data.get("response", ""))
+    except (urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
+        return {
+            "ok": False,
+            "source": "model-error",
+            "model": request_model,
+            "family": "unknown",
+            "ready": False,
+            "acknowledgement": f"Gemma could not return a usable request analysis: {exc}",
+            "questions": ["Try again, or prepare a plan from deterministic rules."],
+            "reasoning_summary": "Local model request analysis failed.",
+        }
+
+    family = str(parsed.get("family", "unknown")).strip()
+    if family not in REQUEST_FAMILIES:
+        family = "unknown"
+    evidence_family = _family_from_evidence(request_evidence)
+    if family == "unknown" and evidence_family:
+        family = evidence_family
+    questions = parsed.get("questions", [])
+    if not isinstance(questions, list):
+        questions = []
+    clean_questions = [str(item).strip() for item in questions if str(item).strip()][:3]
+    acknowledgement = str(parsed.get("acknowledgement", "")).strip()
+    if not acknowledgement:
+        if evidence_family:
+            acknowledgement = f"I collected local evidence and matched this to the {evidence_family} troubleshooting path."
+        else:
+            acknowledgement = "I reviewed the request with the local model."
+
+    return {
+        "ok": True,
+        "source": "gemma",
+        "model": request_model,
+        "family": family,
+        "ready": bool(parsed.get("ready") or (family != "unknown" and evidence_family)),
+        "acknowledgement": acknowledgement,
+        "questions": clean_questions,
+        "reasoning_summary": str(parsed.get("reasoning_summary", "")).strip(),
+        "confidence": parsed.get("confidence"),
+    }
+
+
+def analyze_action_result(plan: dict, result: dict) -> dict[str, Any]:
+    """Ask Gemma to turn executed command output into a useful next-step summary."""
+
+    status = get_engine_status()
+    request_model = choose_request_brain_model(status.get("models", [])) if status.get("available") else None
+    if not request_model:
+        return {
+            "ok": False,
+            "model": None,
+            "analysis": "Gemma analysis is unavailable. Review the command output directly.",
+        }
+
+    output = _strip_ansi(str(result.get("output", "")))[:12000]
+    prompt = "\n".join(
+        [
+            "You are Gemma acting as the maintenance reasoning brain after an approved Execute action.",
+            "The user wants concise, useful troubleshooting, not generic caveats.",
+            "Use the command output to explain what was found and the best next fix direction.",
+            "Do not invent commands. Do not claim a fix was applied unless the result shows it.",
+            "If the action only collected evidence, say what the evidence points to and what the next guarded fix should be.",
+            "Write plain text with these short sections:",
+            "What I found",
+            "Most likely cause",
+            "Best next fix",
+            "Can execute now",
+            "",
+            f"Plan JSON: {json.dumps(plan, ensure_ascii=True)[:6000]}",
+            f"Action result JSON: {json.dumps({k: v for k, v in result.items() if k != 'output'}, ensure_ascii=True)[:4000]}",
+            "Command output:",
+            output or "No command output was returned.",
+        ]
+    )
+    try:
+        data = _post_json(
+            "/api/generate",
+            {
+                "model": request_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.15},
+            },
+            timeout=30,
+        )
+    except urllib.error.URLError as exc:
+        return {"ok": False, "model": request_model, "analysis": f"Could not reach Gemma for result analysis: {exc.reason}"}
+
+    return {
+        "ok": True,
+        "model": request_model,
+        "analysis": data.get("response", "").strip() or "Gemma returned an empty result analysis.",
+    }
 
 
 def build_context(

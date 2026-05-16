@@ -7,6 +7,19 @@ import re
 
 from .maintenance_actions import attach_action_contract
 
+SUPPORTED_FAMILY_OVERRIDES = {
+    "cursor-size",
+    "display",
+    "display-dock",
+    "audio-routing",
+    "network-dns",
+    "package-updates",
+    "docker-cleanup",
+    "startup-apps",
+    "slow-computer",
+    "unknown",
+}
+
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
@@ -31,6 +44,27 @@ def _platform_label(platform_key: str, fallback: str) -> str:
 
 def _has_any(text: str, words: tuple[str, ...]) -> bool:
     return any(word in text for word in words)
+
+
+def _is_display_dock_request(text: str) -> bool:
+    display_terms = (
+        "display",
+        "monitor",
+        "screen",
+        "external",
+        "right screen",
+        "far right",
+        "rotated",
+        "rotation",
+        "half the screen",
+        "bottom half",
+    )
+    dock_terms = ("dock", "docking", "dell", "displaylink", "usb-c", "thunderbolt")
+    behavior_terms = ("jitter", "jittery", "cursor", "pointer", "hides", "hidden", "loses", "disappear")
+    return (
+        _has_any(text, display_terms)
+        and (_has_any(text, dock_terms) or _has_any(text, behavior_terms) or _has_any(text, ("rotated", "rotation")))
+    )
 
 
 def _cursor_direction(text: str) -> str:
@@ -323,6 +357,73 @@ def _display_plan(request_text: str, platform_name: str, platform_key: str) -> d
     return _unsupported_platform_plan(request_text, platform_name, family)
 
 
+def _display_dock_plan(request_text: str, platform_name: str, platform_key: str, distribution_hint: str | None) -> dict:
+    desktop_family = _linux_desktop_family(distribution_hint)
+    if platform_key == "linux":
+        commands = ["xrandr --query", "lsusb", "lspci", "journalctl -b -n 500 --no-pager"]
+        if desktop_family == "cosmic" or _has_any(_normalize(distribution_hint or ""), ("cosmic", "pop")):
+            commands.insert(0, "cosmic-randr list")
+        return _request_plan(
+            plan_id="request-display-dock-linux",
+            family="display-dock",
+            title="Investigate Linux display, dock, and pointer behavior",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary=(
+                "This is a display topology and dock investigation, not a cursor-size change. "
+                "The plan collects monitor layout, rotation, dock hardware, GPU, and recent compositor/session log evidence "
+                "before proposing any display fix."
+            ),
+            commands=commands,
+            manual_steps=[
+                "Identify the affected physical monitor, connector name, rotation, scale, refresh rate, and position.",
+                "Confirm whether the affected monitor is routed through a USB-C, Thunderbolt, or DisplayLink dock.",
+                "Review compositor/session log evidence for rendering, cursor, hotplug, or mode-setting errors.",
+                "Prepare a separate approved fix only after the evidence names a target setting or driver path.",
+            ],
+            expected_effect=(
+                "Collect read-only evidence for rotated external monitor, dock, hidden desktop area, and jittery pointer symptoms."
+            ),
+            rollback=["No setting is changed by this investigation; close the evidence window to stop here."],
+            approval_prompt="Approve this evidence collection before any display setting or driver change is proposed.",
+        )
+
+    if platform_key == "windows":
+        return _request_plan(
+            plan_id="request-display-dock-windows",
+            family="display-dock",
+            title="Investigate Windows display, dock, and pointer behavior",
+            request_text=request_text,
+            platform_name=platform_name,
+            risk="low",
+            reversible=True,
+            requires_privilege=False,
+            summary=(
+                "This is a display topology and dock investigation, not a cursor-size change. "
+                "The plan opens display settings and collects monitor, GPU, and plug-and-play evidence before proposing a fix."
+            ),
+            commands=[
+                'cmd /c start "" ms-settings:display',
+                'powershell -NoProfile -Command "Get-CimInstance Win32_DesktopMonitor"',
+                'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController"',
+                'powershell -NoProfile -Command "Get-PnpDevice | Where-Object {$_.FriendlyName -match ''Display|Dock|USB|Monitor''}"',
+            ],
+            manual_steps=[
+                "Identify the affected monitor in Windows display settings.",
+                "Confirm rotation, scale, resolution, refresh rate, and dock connection path.",
+                "Prepare a separate approved fix for any display setting, driver, or dock firmware change.",
+            ],
+            expected_effect="Collect evidence for the external monitor and dock path before changing display settings.",
+            rollback=["No display setting is changed by the evidence commands; close Settings to stop here."],
+            approval_prompt="Approve this evidence collection before any display setting or driver change is proposed.",
+        )
+
+    return _unsupported_platform_plan(request_text, platform_name, "display-dock")
+
+
 def _audio_plan(request_text: str, platform_name: str, platform_key: str) -> dict:
     input_request = _has_any(_normalize(request_text), ("microphone", "mic", "input"))
     target = "input" if input_request else "output"
@@ -514,6 +615,8 @@ def _slow_computer_plan(request_text: str, platform_name: str, platform_key: str
 
 
 def _family_for_request(normalized: str) -> str:
+    if _is_display_dock_request(normalized):
+        return "display-dock"
     if _has_any(normalized, ("cursor", "pointer")):
         return "cursor-size"
     if _has_any(normalized, ("docker", "container", "image", "volume", "prune")):
@@ -536,7 +639,120 @@ def _family_for_request(normalized: str) -> str:
     return "unknown"
 
 
-def prepare_request_plan(request_text: str, os_name: str | None = None, distribution_hint: str | None = None) -> dict:
+def review_request_intake(request_text: str) -> dict:
+    """Decide whether a request is ready for a plan or needs clarification."""
+
+    normalized = _normalize(request_text)
+    if not normalized:
+        return {
+            "ready": False,
+            "family": "unknown",
+            "acknowledgement": "I need a request before I can look into anything.",
+            "questions": ["What setting, symptom, or maintenance issue should I inspect?"],
+        }
+
+    family = _family_for_request(normalized)
+    if family == "unknown":
+        return {
+            "ready": False,
+            "family": family,
+            "acknowledgement": "I do not have enough of a target yet.",
+            "questions": [
+                "What part of the computer is affected?",
+                "What changed recently, if anything?",
+                "Do you want investigation first, or do you already know the setting you want changed?",
+            ],
+        }
+
+    if family == "cursor-size":
+        direction = _cursor_direction(normalized)
+        wants_investigation = _has_any(normalized, ("investigate", "look into", "check", "jitter", "jittery", "loses", "lost", "disappear"))
+        if direction == "adjust" and not wants_investigation:
+            return {
+                "ready": False,
+                "family": family,
+                "acknowledgement": "I can help with the pointer, but I need the direction before I change it.",
+                "questions": [
+                    "Do you want the cursor smaller, larger, easier to find, or do you want me to investigate pointer behavior first?",
+                    "Does this happen everywhere, or only while dragging windows or using a specific app?",
+                ],
+            }
+        if wants_investigation and direction == "adjust":
+            return {
+                "ready": True,
+                "family": family,
+                "acknowledgement": "I will start by checking safe pointer settings and then we can narrow the jitter or disappearing-cursor symptom from there.",
+                "questions": [],
+            }
+
+    if family == "display-dock":
+        return {
+            "ready": True,
+            "family": family,
+            "acknowledgement": (
+                "That sounds like a display, dock, and compositor path issue, not a cursor-size setting. "
+                "I will collect monitor layout, rotation, dock, GPU, and recent session log evidence before proposing a fix."
+            ),
+            "questions": [],
+        }
+
+    if family == "audio-routing" and not _has_any(normalized, ("output", "speaker", "speakers", "input", "microphone", "mic", "volume")):
+        return {
+            "ready": False,
+            "family": family,
+            "acknowledgement": "Audio can mean output, microphone input, device routing, or volume.",
+            "questions": ["Is the problem with speakers/output, microphone/input, or volume level?"],
+        }
+
+    if family == "display" and not _has_any(normalized, ("brightness", "scale", "scaling", "night", "refresh", "hz", "monitor", "screen")):
+        return {
+            "ready": False,
+            "family": family,
+            "acknowledgement": "Display is a broad area, so I need one more detail.",
+            "questions": ["Is the issue brightness, scaling/text size, night light/color, refresh rate, or the active monitor?"],
+        }
+
+    return {
+        "ready": True,
+        "family": family,
+        "acknowledgement": "Okay, I have enough to prepare a guarded plan. I will show exactly what I found and what I would run before anything executes.",
+        "questions": [],
+    }
+
+
+def _apply_reasoning_metadata(plan: dict, reasoning: dict | None) -> dict:
+    if reasoning:
+        plan["reasoning_brain"] = {
+            "source": reasoning.get("source", "deterministic"),
+            "model": reasoning.get("model"),
+            "family": reasoning.get("family"),
+            "ready": reasoning.get("ready"),
+            "confidence": reasoning.get("confidence"),
+            "summary": reasoning.get("reasoning_summary", ""),
+            "evidence_scopes": reasoning.get("request_evidence", {}).get("scopes", []),
+            "evidence_command_count": len(reasoning.get("request_evidence", {}).get("commands", [])),
+        }
+    else:
+        plan["reasoning_brain"] = {
+            "source": "deterministic",
+            "model": None,
+            "family": plan.get("family"),
+            "ready": True,
+            "confidence": None,
+            "summary": "Prepared by deterministic request rules.",
+            "evidence_scopes": [],
+            "evidence_command_count": 0,
+        }
+    return plan
+
+
+def prepare_request_plan(
+    request_text: str,
+    os_name: str | None = None,
+    distribution_hint: str | None = None,
+    family_override: str | None = None,
+    reasoning: dict | None = None,
+) -> dict:
     """Turn a user maintenance request into an approval-required plan preview."""
 
     resolved_os = os_name or platform.system() or "Unknown"
@@ -544,26 +760,31 @@ def prepare_request_plan(request_text: str, os_name: str | None = None, distribu
     platform_name = _platform_label(platform_key, resolved_os)
     normalized = _normalize(request_text)
     if not normalized:
-        return _triage_plan(request_text, platform_name)
+        return _apply_reasoning_metadata(_triage_plan(request_text, platform_name), reasoning)
 
-    family = _family_for_request(normalized)
+    requested_family = (family_override or "").strip()
+    family = requested_family if requested_family in SUPPORTED_FAMILY_OVERRIDES else _family_for_request(normalized)
+    if family == "unknown":
+        return _apply_reasoning_metadata(_triage_plan(request_text, platform_name), reasoning)
+    if family == "display-dock":
+        return _apply_reasoning_metadata(_display_dock_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
     if family == "cursor-size":
-        return _cursor_plan(request_text, platform_name, platform_key, distribution_hint)
+        return _apply_reasoning_metadata(_cursor_plan(request_text, platform_name, platform_key, distribution_hint), reasoning)
     if family == "display":
-        return _display_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_display_plan(request_text, platform_name, platform_key), reasoning)
     if family == "audio-routing":
-        return _audio_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_audio_plan(request_text, platform_name, platform_key), reasoning)
     if family == "network-dns":
-        return _network_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_network_plan(request_text, platform_name, platform_key), reasoning)
     if family == "package-updates":
-        return _package_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_package_plan(request_text, platform_name, platform_key), reasoning)
     if family == "docker-cleanup":
-        return _docker_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_docker_plan(request_text, platform_name, platform_key), reasoning)
     if family == "startup-apps":
-        return _startup_plan(request_text, platform_name, platform_key)
+        return _apply_reasoning_metadata(_startup_plan(request_text, platform_name, platform_key), reasoning)
     if family == "slow-computer":
-        return _slow_computer_plan(request_text, platform_name, platform_key)
-    return _triage_plan(request_text, platform_name)
+        return _apply_reasoning_metadata(_slow_computer_plan(request_text, platform_name, platform_key), reasoning)
+    return _apply_reasoning_metadata(_triage_plan(request_text, platform_name), reasoning)
 
 
 def format_request_plan(plan: dict) -> str:
@@ -576,6 +797,13 @@ def format_request_plan(plan: dict) -> str:
         f"Reversible: {plan['reversible']}",
         f"Approval required: {plan['approval_required']}",
         f"Execution enabled: {plan['execution_enabled']}",
+        f"Reasoning brain: {plan.get('reasoning_brain', {}).get('source', 'deterministic')}"
+        + (
+            f" ({plan.get('reasoning_brain', {}).get('model')})"
+            if plan.get("reasoning_brain", {}).get("model")
+            else ""
+        ),
+        f"Evidence scopes: {', '.join(plan.get('reasoning_brain', {}).get('evidence_scopes', [])) or 'none'}",
         "",
         plan["summary"],
         "",

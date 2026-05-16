@@ -132,6 +132,35 @@ class MaintenanceActionsTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(run.call_count, 1)
 
+    def test_display_dock_evidence_plan_executes_guarded_read_only_commands(self):
+        control_path = self._project_control("governance_level: 1\nautonomy_level: A1\naction_runner_enabled: true\n")
+        plan = {
+            "id": "request-display-dock-linux",
+            "family": "display-dock",
+            "title": "Investigate Linux display, dock, and pointer behavior",
+            "approval_required": True,
+            "execution_enabled": False,
+            "risk": "low",
+            "reversible": True,
+            "requires_privilege": False,
+            "commands": ["cosmic-randr list", "xrandr --query", "lsusb", "lspci", "journalctl -b -n 500 --no-pager"],
+            "expected_effect": "Collect read-only display and dock evidence.",
+            "rollback": [],
+        }
+
+        contract = build_action_contract(plan, project_control_path=control_path)
+
+        with patch(
+            "system_coach_maintenance_manager.maintenance_actions.subprocess.run",
+            return_value=CompletedProcess(args=[], returncode=0, stdout="evidence\n", stderr=""),
+        ) as run:
+            result = execute_guarded_action(contract, "")
+
+        self.assertTrue(contract["eligible_for_guarded_execution"])
+        self.assertTrue(contract["execution_enabled"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(run.call_count, 5)
+
 
 if __name__ == "__main__":
     unittest.main()

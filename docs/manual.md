@@ -11,8 +11,10 @@ The next product direction is to grow this into a system maintenance and trouble
 - Local review probes run bounded, read-only checks.
 - Filesystem mapping only scans roots selected by the user.
 - AI coaching is grounded in the generated report and selected map.
+- Gemma 4 through local Ollama is the Request Desk reasoning brain when available. Before it asks follow-up questions, the app collects bounded read-only evidence relevant to the request, such as display topology, audio devices, network routes, package-manager state, Docker usage, startup entries, performance basics, services, or recent logs.
 - Maintenance diagnostics run as read-only observations and recommendations.
 - Request Desk plans cover common troubleshooting families but remain approval-required previews.
+- Display and dock requests collect monitor layout, rotation, dock, GPU, and session log evidence before any display setting or driver change is proposed.
 - The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
 - Approved-action contracts gate execution. The Execute button runs only eligible low-risk plans after user approval.
 - Local history records diagnostic snapshots and request-plan previews for later review.
@@ -22,9 +24,11 @@ The next product direction is to grow this into a system maintenance and trouble
 
 This project is set to governance level `1` with agent autonomy `A1`.
 
-In practical terms, the tool may inspect, summarize, and recommend. It may prepare changes or commands, but machine-changing actions require user approval before they are applied.
+In practical terms, the tool may inspect, summarize, reason about requests, and recommend. It may prepare changes or commands, but machine-changing actions require user approval before they are applied.
 
-The current build can run eligible low-risk guarded plans when the user presses Execute. Plans that are privileged, destructive, unsupported, or not exact remain blocked and may be recorded in history.
+The current build can run eligible low-risk guarded plans when the user presses Execute. Gemma can classify the request family, but it cannot invent executable commands or bypass the guarded catalog. Plans that are privileged, destructive, unsupported, or not exact remain blocked and may be recorded in history.
+
+After an eligible plan runs, Gemma reviews the captured output and summarizes what was found, the most likely cause, and the best next fix direction. This keeps Execute useful for investigation plans as well as direct low-risk setting changes.
 
 ## Common Workflows
 
@@ -32,11 +36,12 @@ The current build can run eligible low-risk guarded plans when the user presses 
 2. Run a local review to inspect the current environment and installed tools.
 3. Optionally scan selected roots to discover projects and configuration files.
 4. Ask the local coach questions about the detected stack or selected roots.
-5. Use the Request Desk for specific approval-required plans, such as changing cursor size, checking DNS, reviewing Docker cleanup, or triaging slow performance.
-6. Review the Approval Queue, then press Execute when the selected guarded plan is the one you want to run.
-7. Review the History view when comparing recent diagnostics or preparing a support handoff.
-8. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
-9. Copy a share summary when a plain-language environment overview is needed.
+5. Use Request Desk as a conversation. Type a request, press Enter or Send, answer any follow-up questions, and let the desk prepare a guarded plan from the accumulated context.
+6. Read the Current Recommendation for the problem, evidence, recommended action, and execution status.
+7. Review the Approval Queue, then press Execute when the selected guarded plan is the one you want to run.
+8. Review the History view when comparing recent diagnostics or preparing a support handoff.
+9. Use Chat for questions about the current report, diagnostics, request plan, or selected roots.
+10. Copy a share summary when a plain-language environment overview is needed.
 
 ## Maintenance Direction
 

@@ -16,6 +16,7 @@ MAX_OUTPUT_BYTES = 20000
 LOW_RISK_FAMILIES = {
     "cursor-size",
     "display-brightness",
+    "display-dock",
     "display-night-light",
     "display-refresh-rate",
     "display-scaling",
@@ -28,6 +29,7 @@ ALLOWED_EXECUTABLES = {
     "brightnessctl",
     "cat",
     "cmd",
+    "cosmic-randr",
     "cosmic-settings",
     "eventvwr.msc",
     "gsettings",
@@ -37,6 +39,8 @@ ALLOWED_EXECUTABLES = {
     "kcmshell5",
     "kcmshell6",
     "kscreen-doctor",
+    "lspci",
+    "lsusb",
     "pactl",
     "powershell",
     "pwsh",
@@ -158,7 +162,7 @@ def _command_allowed(command: str, family: str) -> tuple[bool, str | None]:
     if executable in {"gsettings", "xfconf-query"}:
         if not any(verb in parts for verb in READ_ONLY_VERBS | MUTATING_VERBS) and "-s" not in parts:
             return False, f"{executable} command does not declare an allowed read or set operation"
-    if executable in {"cmd", "powershell", "pwsh"} and family not in {"cursor-size", "journal-errors", "network-basics"}:
+    if executable in {"cmd", "powershell", "pwsh"} and family not in {"cursor-size", "display-dock", "journal-errors", "network-basics"}:
         return False, f"{executable} execution is only enabled for guarded settings or read-only evidence plans"
     return True, None
 

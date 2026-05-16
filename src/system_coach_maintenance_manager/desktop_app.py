@@ -13,7 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from .agents import build_agents
-from .ai_engine import answer_question, get_engine_status
+from .ai_engine import analyze_action_result, answer_question, get_engine_status, reason_about_request
 from .diagnostics import collect_diagnostics
 from .exporting import build_share_text
 from .maintenance_actions import execute_guarded_action
@@ -21,7 +21,8 @@ from .maintenance_history import format_history, load_history, record_maintenanc
 from .maintenance_history import record_action_result
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
-from .request_plans import format_request_plan, prepare_request_plan
+from .request_evidence import collect_request_evidence
+from .request_plans import format_request_plan, prepare_request_plan, review_request_intake
 from .scanner import map_filesystem, suggest_roots
 
 
@@ -54,6 +55,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.current_history: dict | None = None
         self.engine_status: dict | None = None
         self.queued_plans: list[dict] = []
+        self.request_context: list[str] = []
+        self.latest_request_reasoning: dict | None = None
 
         outer_scroll = Gtk.ScrolledWindow()
         outer_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -363,8 +366,8 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
     def _build_request_page(self) -> None:
         intro = Gtk.Label(
             label=(
-                "Describe a specific maintenance or settings request. The app prepares an approval-required "
-                "plan with risk, reversibility, privilege, exact commands, and rollback notes."
+                "Describe the issue like you would to a technician. The desk will ask for missing details, "
+                "then prepare a guarded plan with exact commands and rollback notes."
             )
         )
         intro.set_xalign(0)
@@ -373,33 +376,46 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
 
         prompts_row = self._make_wrapping_flow()
         self.request_page.pack_start(prompts_row, False, False, 0)
-        for prompt in [
-            "My cursor size seems odd. Make it smaller.",
-            "My screen is too bright.",
-            "My audio output is wrong.",
-            "DNS seems broken.",
-            "Repair package updates.",
-            "Review Docker cleanup.",
-            "Review startup apps.",
-            "My computer feels slow.",
+        for label, prompt in [
+            ("Display or Dock", "A monitor, dock, cursor, scaling, rotation, or display layout is acting wrong."),
+            ("Audio", "My audio input or output is wrong."),
+            ("Network", "DNS, Wi-Fi, routing, or internet connectivity seems broken."),
+            ("Slow Computer", "My computer feels slow or laggy. Investigate and suggest the best fix."),
+            ("Packages", "Package updates or installs are failing. Investigate before repairing."),
+            ("Docker", "Review Docker disk usage and cleanup options."),
+            ("Startup", "Review startup apps and services that may be slowing login."),
         ]:
-            button = Gtk.Button(label=prompt)
+            button = Gtk.Button(label=label)
+            button.set_tooltip_text(prompt)
             button.connect("clicked", self.on_prompt_clicked, prompt)
             prompts_row.add(button)
 
         self.request_entry = Gtk.Entry()
-        self.request_entry.set_placeholder_text("Describe a specific request, such as DNS seems broken...")
-        self.request_entry.connect("activate", self.on_prepare_request_plan)
-        self.request_page.pack_start(self.request_entry, False, False, 0)
+        self.request_entry.set_placeholder_text("Type a request or answer a follow-up question...")
+        self.request_entry.connect("activate", self.on_request_send)
+
+        input_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        input_row.pack_start(self.request_entry, True, True, 0)
+        self.request_send_button = Gtk.Button(label="Send")
+        self.request_send_button.connect("clicked", self.on_request_send)
+        input_row.pack_start(self.request_send_button, False, False, 0)
+        self.request_page.pack_start(input_row, False, False, 0)
 
         action_row = self._make_wrapping_flow()
         self.request_page.pack_start(action_row, False, False, 0)
-        self.prepare_request_button = Gtk.Button(label="Prepare Approval Plan")
+        self.prepare_request_button = Gtk.Button(label="Prepare Plan Now")
         self.prepare_request_button.connect("clicked", self.on_prepare_request_plan)
         action_row.add(self.prepare_request_button)
 
+        self.clear_request_button = Gtk.Button(label="Clear Conversation")
+        self.clear_request_button.connect("clicked", self.on_clear_request_conversation)
+        action_row.add(self.clear_request_button)
+
         self.request_plan_view = self._make_text_view()
-        self.request_page.pack_start(self._frame("Latest Request Plan", self.request_plan_view), True, True, 0)
+        self.request_page.pack_start(self._frame("Current Recommendation", self.request_plan_view), True, True, 0)
+
+        self.request_thread_view = self._make_text_view()
+        self.request_page.pack_start(self._frame("Conversation", self.request_thread_view), True, True, 0)
 
     def _build_approval_page(self) -> None:
         intro = Gtk.Label(
@@ -417,6 +433,7 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
 
         self.approval_plan_picker = Gtk.ComboBoxText()
         self.approval_plan_picker.set_hexpand(True)
+        self.approval_plan_picker.connect("changed", self.on_approval_selection_changed)
         controls.pack_start(self.approval_plan_picker, True, True, 0)
 
         self.review_action_button = Gtk.Button(label="Review Selected Plan")
@@ -434,8 +451,11 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         self.execution_gate_label.set_line_wrap(True)
         self.approval_page.pack_start(self.execution_gate_label, False, False, 0)
 
+        self.approval_selected_view = self._make_text_view()
+        self.approval_page.pack_start(self._frame("Selected Fix", self.approval_selected_view), True, True, 0)
+
         self.approval_queue_view = self._make_text_view()
-        self.approval_page.pack_start(self._frame("Scannable Approval Queue", self.approval_queue_view), True, True, 0)
+        self.approval_page.pack_start(self._frame("Queue", self.approval_queue_view), True, True, 0)
 
     def _build_history_page(self) -> None:
         intro = Gtk.Label(
@@ -773,12 +793,22 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
                 self.approval_queue_view,
                 "No approval-required plans are queued yet. Run maintenance diagnostics or prepare a request plan.",
             )
+            self._set_text(self.approval_selected_view, "")
             return
 
         queue_sections = []
         for index, plan in enumerate(queued_plans, 1):
-            queue_sections.extend([f"Queue item {index}", self._format_plan_details(plan), ""])
+            queue_sections.append(self._queue_item_summary(index, plan))
         self._set_text(self.approval_queue_view, "\n".join(queue_sections).strip())
+        self._refresh_selected_plan_preview()
+
+    def _queue_item_summary(self, index: int, plan: dict) -> str:
+        contract = plan.get("action_contract", {})
+        can_execute = contract.get("execution_enabled", plan.get("execution_enabled", False))
+        risk = plan.get("risk", "unknown")
+        privilege = "privileged" if plan.get("requires_privilege") else "user-level"
+        status = "can execute" if can_execute else "blocked"
+        return f"{index}. {plan['title']} | {status} | risk: {risk} | {privilege}"
 
     def _refresh_approval_controls(self) -> None:
         self.approval_plan_picker.remove_all()
@@ -789,27 +819,38 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             self.execute_action_button.set_sensitive(False)
             self.execute_nav_button.set_sensitive(False)
             self.execution_gate_label.set_text("Execution is locked. Prepare a request plan or run diagnostics to review a queued fix.")
+            if hasattr(self, "approval_selected_view"):
+                self._set_text(self.approval_selected_view, "")
             return
 
-        any_execution_enabled = False
         for index, plan in enumerate(self.queued_plans, 1):
-            contract = plan.get("action_contract", {})
-            if contract.get("execution_enabled"):
-                any_execution_enabled = True
             self.approval_plan_picker.append_text(f"{index}. {plan['title']}")
         self.approval_plan_picker.set_active(0)
         self.review_action_button.set_sensitive(True)
         self.execute_action_button.set_sensitive(True)
         self.execute_nav_button.set_sensitive(True)
-        if any_execution_enabled:
-            self.execution_gate_label.set_text(
-                "At least one queued plan is execution-enabled. Press Execute Selected Fix to run the selected plan."
-            )
+        self._refresh_selected_plan_preview()
+
+    def _refresh_selected_plan_preview(self) -> None:
+        if not hasattr(self, "approval_selected_view"):
+            return
+        plan = self._selected_queued_plan()
+        if not plan:
+            self._set_text(self.approval_selected_view, "")
+            return
+        contract = plan.get("action_contract", {})
+        executable = contract.get("execution_enabled", False)
+        gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
+        if executable:
+            self.execution_gate_label.set_text("Selected fix can execute. Press Execute Selected Fix to run it now.")
         else:
             self.execution_gate_label.set_text(
-                "Execution is visible but the selected plans are not executable yet. "
-                "Use Review Selected Plan to inspect commands, risk, rollback, and gate reasons."
+                "Selected fix is blocked. Review the reason below, then prepare a narrower or lower-risk plan."
             )
+        self._set_text(self.approval_selected_view, self._plain_plan_summary(plan))
+
+    def on_approval_selection_changed(self, _combo: Gtk.ComboBoxText | None) -> None:
+        self._refresh_selected_plan_preview()
 
     def _selected_queued_plan(self) -> dict | None:
         index = self.approval_plan_picker.get_active()
@@ -861,38 +902,49 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         commands = contract.get("command_preview", plan.get("commands", []))
         executable = contract.get("execution_enabled", False)
         changes_system = plan.get("family") in {"cursor-size", "display-brightness", "display-night-light", "display-refresh-rate", "display-scaling", "audio-routing"}
+        reasoning = plan.get("reasoning_brain", {})
+        evidence_scopes = reasoning.get("evidence_scopes", [])
+        evidence_count = reasoning.get("evidence_command_count", 0)
 
         if finding:
             problem = finding["summary"]
-            why = json.dumps(finding.get("evidence", {}), indent=2)
+            evidence = json.dumps(finding.get("evidence", {}), indent=2)
+            why = "The maintenance scan found this condition in the latest read-only diagnostics."
         else:
-            problem = plan.get("summary", "This plan came from a direct user request.")
-            why = plan.get("summary", "The request matched a known maintenance family.")
+            problem = plan.get("request") or plan.get("summary", "This plan came from a direct user request.")
+            if evidence_scopes:
+                evidence = f"Collected {evidence_count} read-only evidence command(s) for: {', '.join(evidence_scopes)}."
+            else:
+                evidence = "No extra request evidence was needed before preparing this plan."
+            why = reasoning.get("summary") or plan.get("summary", "The request matched a known maintenance family.")
 
         if executable and changes_system:
             action = "Execute will apply this low-risk current-user setting change."
         elif executable:
-            action = "Execute will run these safe read-only commands and collect evidence. This is not a final repair yet."
+            action = "Execute will run these guarded command(s), capture the output, and ask Gemma for the best next fix direction."
         else:
-            action = "Execute will not run this plan yet because the runner blocked it."
+            action = "Execute will not run this plan yet because the guarded runner blocked it."
 
         lines = [
             plan["title"],
             "",
-            "What it found:",
+            "Problem:",
             problem,
             "",
-            "Why this may be happening:",
+            "Evidence:",
+            evidence,
+            "",
+            "Why:",
             why or "The diagnostic needs more evidence before naming a root cause.",
             "",
-            "What Execute will do:",
+            "Recommended action:",
             action,
-            "",
-            "Commands:",
-            *(f"- {command}" for command in commands),
             "",
             "Can execute now:",
             "Yes" if executable else "No",
+            "",
+            "Commands:",
+            *(f"- {command}" for command in commands),
         ]
         if gate_reasons:
             lines.extend(["", "Why blocked:", *(f"- {reason}" for reason in gate_reasons)])
@@ -990,12 +1042,17 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
         result = execute_guarded_action(contract, "")
         record_action_result(result)
         if result["status"] == "completed":
+            analysis = analyze_action_result(plan, result)
+            analysis_label = f"Gemma analysis [{analysis.get('model')}]" if analysis.get("model") else "Gemma analysis"
             body = "\n".join(
                 [
                     "Execution completed.",
                     "",
                     f"Selected plan: {plan['title']}",
                     f"Action id: {contract.get('id', 'unknown')}",
+                    "",
+                    f"{analysis_label}:",
+                    analysis.get("analysis", "No analysis was returned."),
                     "",
                     "Command output:",
                     result.get("output") or "No command output was returned.",
@@ -1053,34 +1110,151 @@ class SystemCoachWindow(Gtk.ApplicationWindow):
             for word in ("cursor", "screen", "audio", "dns", "docker", "slow", "startup", "package", "update")
         ):
             self.request_entry.set_text(prompt)
-            self.on_prepare_request_plan(None)
+            self.on_request_send(None)
             return
         self.coach_question_entry.set_text(prompt)
         self.on_ask_coach(None)
 
-    def on_prepare_request_plan(self, _widget: Gtk.Widget | None) -> None:
+    def _append_request_message(self, speaker: str, text: str) -> None:
+        self._append_text(self.request_thread_view, f"{speaker}: {text}")
+
+    def _combined_request_context(self) -> str:
+        return "\n".join(self.request_context).strip()
+
+    def _request_environment_context(self) -> tuple[str | None, str | None]:
+        environment = (self.current_report or {}).get("environment", {})
+        maintenance_desktop = (self.current_maintenance or {}).get("metrics", {}).get("desktop", {})
+        os_name = environment.get("os") or (self.current_maintenance or {}).get("metrics", {}).get("platform", {}).get("os")
+        desktop_hint = environment.get("desktop") or maintenance_desktop.get("current_desktop")
+        return os_name, desktop_hint
+
+    def _start_request_brain(self, request_text: str, *, force_plan: bool = False) -> None:
+        os_name, desktop_hint = self._request_environment_context()
+        self.request_send_button.set_sensitive(False)
+        self.prepare_request_button.set_sensitive(False)
+        self._set_status("Gemma is thinking through the request...")
+        threading.Thread(
+            target=self._request_brain_worker,
+            args=(request_text, os_name, desktop_hint, self.current_maintenance, force_plan),
+            daemon=True,
+        ).start()
+
+    def _request_brain_worker(
+        self,
+        request_text: str,
+        os_name: str | None,
+        desktop_hint: str | None,
+        maintenance_report: dict | None,
+        force_plan: bool,
+    ) -> None:
+        evidence = collect_request_evidence(request_text, os_name=os_name, desktop_hint=desktop_hint)
+        reasoning = reason_about_request(
+            request_text,
+            os_name=os_name,
+            desktop_hint=desktop_hint,
+            maintenance_report=maintenance_report,
+            request_evidence=evidence,
+        )
+        reasoning["request_evidence"] = evidence
+        if not reasoning.get("ok"):
+            fallback = review_request_intake(request_text)
+            fallback.update(
+                {
+                    "source": "deterministic-fallback",
+                    "model": None,
+                    "confidence": None,
+                    "reasoning_summary": reasoning.get("reasoning_summary", ""),
+                    "model_error": reasoning.get("acknowledgement", "Gemma request analysis was unavailable."),
+                    "request_evidence": evidence,
+                }
+            )
+            reasoning = fallback
+        GLib.idle_add(self._apply_request_brain_result, request_text, reasoning, force_plan)
+
+    def _apply_request_brain_result(self, request_text: str, reasoning: dict, force_plan: bool) -> bool:
+        self.latest_request_reasoning = reasoning
+        self.request_send_button.set_sensitive(True)
+        self.prepare_request_button.set_sensitive(True)
+
+        source = reasoning.get("source", "deterministic")
+        model = reasoning.get("model")
+        brain_label = f"Gemma [{model}]" if source == "gemma" and model else source.replace("-", " ").title()
+
+        if reasoning.get("model_error"):
+            self._append_request_message("Request Desk", reasoning["model_error"])
+
+        if reasoning.get("ready") or force_plan:
+            self._append_request_message("Request Desk", f"{brain_label}: {reasoning['acknowledgement']}")
+            self._prepare_request_plan(request_text, reasoning=reasoning)
+            return False
+
+        response_lines = [f"{brain_label}: {reasoning['acknowledgement']}", "", "I need one or two details:"]
+        response_lines.extend(f"- {question}" for question in reasoning.get("questions", []))
+        self._append_request_message("Request Desk", "\n".join(response_lines))
+        self._set_status("Request Desk needs more detail before preparing a plan.")
+        return False
+
+    def on_request_send(self, _widget: Gtk.Widget | None) -> None:
         request_text = self.request_entry.get_text().strip()
+        if not request_text:
+            self._set_status("Type a request or answer before sending.")
+            return
+
+        self.request_entry.set_text("")
+        self.request_context.append(request_text)
+        self._append_request_message("You", request_text)
+
+        combined_text = self._combined_request_context()
+        self._start_request_brain(combined_text)
+
+    def on_prepare_request_plan(self, _widget: Gtk.Widget | None) -> None:
+        request_text = self.request_entry.get_text().strip() or self._combined_request_context()
         if not request_text:
             self._set_status("Type a maintenance request before preparing a plan.")
             return
+        if self.request_entry.get_text().strip():
+            self.request_context.append(request_text)
+            self._append_request_message("You", request_text)
+            self.request_entry.set_text("")
+        self._append_request_message("Request Desk", "I will ask Gemma to prepare the best guarded path from the details available now.")
+        self._start_request_brain(self._combined_request_context() or request_text, force_plan=True)
 
-        environment = (self.current_report or {}).get("environment", {})
-        maintenance_desktop = (self.current_maintenance or {}).get("metrics", {}).get("desktop", {})
-        desktop_hint = environment.get("desktop") or maintenance_desktop.get("current_desktop")
+    def _prepare_request_plan(self, request_text: str, reasoning: dict | None = None) -> None:
+        os_name, desktop_hint = self._request_environment_context()
         plan = prepare_request_plan(
             request_text,
-            os_name=environment.get("os") or (self.current_maintenance or {}).get("metrics", {}).get("platform", {}).get("os"),
+            os_name=os_name,
             distribution_hint=desktop_hint,
+            family_override=reasoning.get("family") if reasoning else None,
+            reasoning=reasoning,
         )
         self.current_request_plan = plan
         record_request_plan(plan)
         formatted = format_request_plan(plan)
-        self._set_text(self.request_plan_view, formatted)
+        self._set_text(self.request_plan_view, self._plain_plan_summary(plan))
         self._append_text(self.coach_view, f"You: {request_text}")
         self._append_text(self.coach_view, f"Plan [{plan['platform']}]:\n{formatted}")
-        self._set_status("Approval-required plan prepared. No change was executed.")
+        self._append_request_message(
+            "Request Desk",
+            (
+                f"Plan ready: {plan['title']}\n"
+                f"Can execute now: {'yes' if plan['execution_enabled'] else 'no'}\n"
+                "Review the current recommendation, then press Execute when this is the selected fix."
+            ),
+        )
+        self._set_status("Request plan prepared. Review it before execution.")
         self._refresh_history_view()
         self._refresh_approval_queue()
+
+    def on_clear_request_conversation(self, _button: Gtk.Button | None) -> None:
+        self.request_context = []
+        self.request_entry.set_text("")
+        self._set_text(self.request_thread_view, "")
+        self._set_text(self.request_plan_view, "")
+        self.current_request_plan = None
+        self.latest_request_reasoning = None
+        self._refresh_approval_queue()
+        self._set_status("Request Desk conversation cleared.")
 
     def on_ask_coach(self, _widget: Gtk.Widget | None) -> None:
         question = self.coach_question_entry.get_text().strip()

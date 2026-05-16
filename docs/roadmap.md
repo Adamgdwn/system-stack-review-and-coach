@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, guarded low-risk action execution, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Gemma-backed Request Desk reasoning, Approval Queue, local maintenance history, guarded low-risk action execution, deeper display/dock investigation planning, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
 
 ## Chunk 1: Governance And Release Hygiene
 
@@ -31,6 +31,7 @@ Status: completed.
 
 - Expand request families beyond cursor/pointer size:
   - display scaling, brightness, night light, and refresh rate
+  - display/dock investigation for rotated external monitors, hidden screen regions, and pointer jitter
   - audio input/output selection and volume issues
   - network/DNS troubleshooting
   - package/update repair planning
@@ -110,3 +111,24 @@ Status: completed.
 - Keep execution limited to exact, reversible, non-privileged commands in the guarded catalog.
 - Keep privileged, destructive, placeholder, medium-risk, and unsupported plans blocked with visible reasons.
 - Record completed, failed, and blocked action attempts in local history.
+
+## Chunk 10: Interactive Request Desk
+
+Status: completed.
+
+- Add a Send button and Enter-to-send behavior for request intake.
+- Keep a visible request conversation instead of jumping straight from a text field to a plan.
+- Ask plain follow-up questions when the request is too vague.
+- Prepare the guarded plan from the accumulated conversation once enough detail is present.
+
+## Chunk 11: Gemma Reasoning Brain
+
+Status: completed.
+
+- Route Request Desk intake through local Gemma 4 when Ollama is available.
+- Collect bounded read-only request evidence before Gemma asks the user for details.
+- Ask Gemma for structured JSON containing request family, readiness, clarification questions, and reasoning summary.
+- Accept only whitelisted request families from the model before preparing a deterministic guarded plan.
+- Keep command selection, execution eligibility, approval controls, and guarded catalog enforcement outside the model.
+- Analyze completed guarded action output with Gemma so Execute produces useful findings and next-fix direction.
+- Simplify the desktop Request Desk and Approval Queue so the default view is a plain-language current recommendation and selected-fix card.

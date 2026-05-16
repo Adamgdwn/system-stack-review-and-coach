@@ -540,6 +540,7 @@ async function prepareRequestPlan() {
         desktop_hint:
           currentReport?.environment?.desktop ||
           currentMaintenance?.metrics?.desktop?.current_desktop,
+        maintenance_report: currentMaintenance,
       }),
     });
     if (!response.ok) {

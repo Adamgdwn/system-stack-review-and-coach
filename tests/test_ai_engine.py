@@ -1,12 +1,23 @@
 import unittest
+from unittest.mock import patch
 
-from system_coach_maintenance_manager.ai_engine import build_context, choose_model
+from system_coach_maintenance_manager.ai_engine import (
+    analyze_action_result,
+    build_context,
+    choose_model,
+    choose_request_brain_model,
+    reason_about_request,
+)
 
 
 class AiEngineTests(unittest.TestCase):
     def test_choose_model_prefers_known_models(self):
         model = choose_model(["mistral", "gemma4:latest", "qwen3:8b", "other"])
         self.assertEqual(model, "gemma4:latest")
+
+    def test_choose_request_brain_requires_gemma4(self):
+        self.assertEqual(choose_request_brain_model(["qwen3:8b", "gemma4"]), "gemma4")
+        self.assertIsNone(choose_request_brain_model(["qwen3:8b", "mistral"]))
 
     def test_build_context_includes_report_and_map(self):
         report = {
@@ -64,6 +75,99 @@ class AiEngineTests(unittest.TestCase):
         self.assertIn("Git config", context)
         self.assertIn("Maintenance diagnostics", context)
         self.assertIn("Latest user-requested approval plan", context)
+
+    def test_reason_about_request_uses_gemma_structured_json(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "gemma4:latest"}]},
+        ), patch(
+            "system_coach_maintenance_manager.ai_engine._post_json",
+            return_value={
+                "response": (
+                    '{"family":"display-dock","ready":true,'
+                    '"acknowledgement":"This looks like a docked display issue.",'
+                    '"questions":[],"reasoning_summary":"External rotated monitor via dock.",'
+                    '"confidence":0.91}'
+                )
+            },
+        ):
+            result = reason_about_request(
+                "My far right screen through the Dell dock is rotated and the cursor is jittery.",
+                os_name="Linux",
+                desktop_hint="COSMIC",
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["source"], "gemma")
+        self.assertEqual(result["model"], "gemma4:latest")
+        self.assertEqual(result["family"], "display-dock")
+        self.assertTrue(result["ready"])
+
+    def test_reason_about_request_rejects_unknown_model_family(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "gemma4:latest"}]},
+        ), patch(
+            "system_coach_maintenance_manager.ai_engine._post_json",
+            return_value={
+                "response": (
+                    '{"family":"run-random-shell","ready":true,'
+                    '"acknowledgement":"I classified it.",'
+                    '"questions":[],"reasoning_summary":"Bad family."}'
+                )
+            },
+        ):
+            result = reason_about_request("do a thing", os_name="Linux")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["family"], "unknown")
+
+    def test_reason_about_request_uses_evidence_scope_when_model_is_empty(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "gemma4:latest"}]},
+        ), patch(
+            "system_coach_maintenance_manager.ai_engine._post_json",
+            return_value={"response": '{"family":"unknown","ready":false,"acknowledgement":"","questions":[]}'},
+        ):
+            result = reason_about_request(
+                "Something is wrong.",
+                os_name="Linux",
+                request_evidence={"scopes": ["network-dns"], "commands": [{"command": "ip route", "output": "default via 1.1.1.1"}]},
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["family"], "network-dns")
+        self.assertTrue(result["ready"])
+        self.assertIn("network-dns", result["acknowledgement"])
+
+    def test_reason_about_request_does_not_use_non_gemma_model(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "qwen3:8b"}]},
+        ):
+            result = reason_about_request("fix my display", os_name="Linux")
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["source"], "unavailable")
+        self.assertIn("Gemma 4", result["acknowledgement"])
+
+    def test_analyze_action_result_uses_gemma(self):
+        with patch(
+            "system_coach_maintenance_manager.ai_engine._get_json",
+            return_value={"models": [{"name": "gemma4:latest"}]},
+        ), patch(
+            "system_coach_maintenance_manager.ai_engine._post_json",
+            return_value={"response": "What I found\nDisplayLink dock evidence.\n\nBest next fix\nPrepare a display layout reset."},
+        ):
+            result = analyze_action_result(
+                {"title": "Investigate display dock", "family": "display-dock"},
+                {"status": "completed", "output": "Dell Universal Dock D6000\nSamsung C27F390"},
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["model"], "gemma4:latest")
+        self.assertIn("DisplayLink", result["analysis"])
 
 
 if __name__ == "__main__":

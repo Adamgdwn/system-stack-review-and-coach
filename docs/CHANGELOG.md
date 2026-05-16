@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Promoted Gemma 4 through Ollama into the Request Desk reasoning path: the model now classifies requests, asks clarification questions, and passes only whitelisted plan families into the guarded deterministic planner.
+- Added universal read-only Request Desk evidence collection so Gemma can inspect relevant local facts before asking the user for details.
+- Added Gemma post-execute analysis so completed guarded actions explain what was found, the likely cause, and the best next fix direction instead of only showing raw command output.
+- Cleaned the desktop Request Desk and Approval Queue into a recommendation-first flow with compact prompt buttons, selected-fix review, and a shorter queue list.
+- Added a guarded display/dock investigation path so rotated external monitors, docked displays, hidden screen areas, and jittery cursor reports collect real topology, dock, GPU, and compositor evidence instead of collapsing into cursor-size changes.
+- Turned Request Desk into a guided conversation with Send, Enter-to-send, follow-up questions, and plan preparation from accumulated context.
 - Enabled guarded low-risk action execution from the desktop Execute button when project controls allow it.
 - Added a plain-language Maintenance Findings dialog that explains what was found, why it matters, and what Execute will do.
 - Added clearer desktop workflow controls for Request Desk, Approval Queue, Chat, and gated execution review.
