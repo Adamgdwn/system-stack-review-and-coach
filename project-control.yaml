@@ -26,6 +26,7 @@ controls:
     - docs/roadmap.md
     - docs/deployment-guide.md
     - docs/runbook.md
+    - docs/action-runner-contract.md
     - docs/setup-linux.md
     - docs/setup-windows-browser.md
     - docs/release-checklist.md

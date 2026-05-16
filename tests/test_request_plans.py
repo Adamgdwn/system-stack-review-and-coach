@@ -8,6 +8,8 @@ class RequestPlanTests(unittest.TestCase):
         self.assertTrue(plan["approval_required"])
         self.assertFalse(plan["execution_enabled"])
         self.assertIn("family", plan)
+        self.assertIn("action_contract", plan)
+        self.assertFalse(plan["action_contract"]["execution_enabled"])
 
     def test_prepare_linux_cursor_plan_is_approval_required(self):
         plan = prepare_request_plan(

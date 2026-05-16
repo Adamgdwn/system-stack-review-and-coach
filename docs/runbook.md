@@ -7,6 +7,7 @@ This system teaches users about their local development environment through a na
 It can also perform an opt-in filesystem map for user-selected roots to explain project folders, repositories, and configuration files in plain language.
 The maintenance diagnostics workflow runs read-only system health checks and prepares approval-required plans without executing fixes.
 Maintenance reports and Request Desk plans are appended to a local JSONL history archive.
+Prepared plans include approved-action contracts, but guarded execution is blocked until governance is reassessed.
 When Ollama is available locally, it can answer follow-up questions using the local model and the generated stack, filesystem, and maintenance context.
 
 ## Alerts And Failures
@@ -20,6 +21,7 @@ Likely failure conditions:
 - A filesystem map root is too large, slow, or permission-limited.
 - A maintenance diagnostic command is missing, times out, or returns permission-limited evidence.
 - The local history archive cannot be written or read.
+- An action contract appears eligible but remains blocked by governance.
 - Ollama is unavailable, has no supported model, or returns an error while answering.
 - The desktop launcher points to an outdated repository path.
 
@@ -34,6 +36,7 @@ First response:
 7. Run maintenance diagnostics and review findings before preparing any machine-changing action.
 8. Refresh the History view to confirm diagnostics and request plans are being recorded.
 9. Check the Approval Queue to confirm every prepared plan still says execution is disabled.
+10. If an action-run attempt is tested, confirm it records a blocked result and does not run commands.
 
 ## Dependencies
 
@@ -56,6 +59,7 @@ First response:
 - If maintenance findings look noisy, inspect the command log and rerun after narrowing the symptom being investigated.
 - If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before any future execution support is considered.
+- If an action contract says execution is blocked, that is expected under governance level `1` and autonomy `A1`.
 - If history does not update, check directory permissions or set `STACK_COACH_HISTORY_DIR` to a writable local path.
 - If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.
@@ -68,4 +72,5 @@ Escalate to the project owner or technical lead when:
 - the local launcher repeatedly fails on multiple machines
 - a probe command causes unexpected side effects
 - a maintenance diagnostic suggests a privileged, irreversible, or broad cleanup action
+- any user wants action execution enabled rather than preview-only contracts
 - governance requirements or exception handling need review

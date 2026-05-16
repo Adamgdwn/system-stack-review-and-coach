@@ -23,6 +23,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run Maintenance Diagnostics.
 - Prepare a Request Desk plan.
 - Confirm Approval Queue shows exact commands, risk, reversibility, privilege, and execution disabled.
+- Confirm each queued plan shows an action-runner contract and gate reason.
 - Refresh History and confirm the local JSONL path is visible.
 - Ask Coach a short question when Ollama is available.
 - Resize the window below and above the responsive breakpoint.
@@ -36,6 +37,7 @@ Use this checklist before sharing a build with another machine or user.
 - Run Maintenance Diagnostics.
 - Prepare a Request Desk plan.
 - Confirm Approval Queue and History update.
+- Confirm `/api/action-run` returns a blocked result for the current governance level.
 - Ask Coach a short question when Ollama is available.
 
 ## Windows Browser Mode Smoke Test
@@ -43,6 +45,7 @@ Use this checklist before sharing a build with another machine or user.
 - Launch from PowerShell with `$env:PYTHONPATH="src"; python -m stack_review_coach --browser --no-browser`.
 - Open the printed local URL.
 - Confirm local review, Request Desk, Approval Queue, History, and Coach Chat render.
+- Confirm action contracts are visible and execution remains disabled.
 - Confirm missing Windows diagnostic commands produce readable warnings instead of crashes.
 
 ## Packaging

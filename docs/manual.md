@@ -14,6 +14,7 @@ The next product direction is to grow this into a system maintenance and trouble
 - Maintenance diagnostics run as read-only observations and recommendations.
 - Request Desk plans cover common troubleshooting families but remain approval-required previews.
 - The Approval Queue collects prepared diagnostic and request plans in a single scannable place.
+- Approved-action contracts show the future execution shape, but execution is blocked under the current governance level.
 - Local history records diagnostic snapshots and request-plan previews for later review.
 - Any future repair or cleanup action must require explicit user approval before execution.
 
@@ -22,6 +23,8 @@ The next product direction is to grow this into a system maintenance and trouble
 This project is set to governance level `1` with agent autonomy `A1`.
 
 In practical terms, the tool may inspect, summarize, and recommend. It may prepare changes or commands, but machine-changing actions require user approval before they are applied.
+
+The current build does not apply machine-changing actions. Action contracts are visible for review and audit, and blocked action attempts may be recorded in history.
 
 ## Common Workflows
 

@@ -82,6 +82,8 @@ python3 -m compileall src tests
 - Maintenance plans are prepared as approval-required previews with commands, expected effects, risk, reversibility, and privilege flags.
 - The Request Desk turns specific requests into platform-aware approval-required plans for cursor/pointer size, display settings, audio routing, network/DNS issues, package/update repair, Docker cleanup review, startup app review, and slow-computer triage.
 - The Approval Queue makes prepared plans scannable before any future execution support exists.
+- Approved-action contracts are attached to prepared plans so command previews, confirmation phrases, timeouts, output capture policy, post-checks, and rollback notes are visible.
+- Guarded action execution is currently blocked by governance. Blocked attempts can be recorded, but commands are not run.
 - Local maintenance history records diagnostic snapshots and request-plan previews under `history/maintenance-history.jsonl` by default.
 - History includes a “changed since last diagnostic run” summary when at least two diagnostic snapshots are available.
 - Browser fallback mode includes both the Request Desk and local Coach Chat so Windows users can use the supervised workflow without GTK.
@@ -106,6 +108,7 @@ python3 -m compileall src tests
 - `docs/deployment-guide.md`
 - `docs/runbook.md`
 - `docs/maintenance-manager-plan.md`
+- `docs/action-runner-contract.md`
 - `docs/setup-linux.md`
 - `docs/setup-windows-browser.md`
 - `docs/release-checklist.md`

@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
+The application currently provides local stack review, selected-root filesystem mapping, share summaries, read-only maintenance diagnostics, separated Chat, Request Desk, Approval Queue, local maintenance history, action-runner contracts with execution blocked, browser fallback mode, local Ollama-backed coaching, and platform setup/release guidance.
 
 ## Chunk 1: Governance And Release Hygiene
 
@@ -76,7 +76,7 @@ Status: completed.
 
 ## Chunk 7: Approved Action Runner Contract
 
-Status: future, gated.
+Status: completed, execution disabled.
 
 - Define the action-runner contract before implementation:
   - exact command preview
@@ -93,7 +93,7 @@ Status: future, gated.
 
 ## Chunk 8: Guarded Maintenance Actions
 
-Status: future, governance reassessment required.
+Status: completed as gated scaffold; governance reassessment still required before execution.
 
 - Add a narrow action runner for reversible or low-risk maintenance tasks only after Chunk 7 is complete.
 - Require per-action confirmation and visible logs.

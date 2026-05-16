@@ -13,7 +13,9 @@ import webbrowser
 from .agents import build_agents
 from .ai_engine import answer_question
 from .diagnostics import collect_diagnostics
+from .maintenance_actions import build_action_contract, execute_guarded_action
 from .maintenance_history import load_history, record_maintenance_report, record_request_plan
+from .maintenance_history import record_action_result
 from .maintenance_reporting import generate_maintenance_report
 from .reporting import generate_report
 from .request_plans import prepare_request_plan
@@ -68,7 +70,7 @@ class StackCoachHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        if self.path not in {"/api/map", "/api/request-plan", "/api/ask"}:
+        if self.path not in {"/api/map", "/api/request-plan", "/api/action-contract", "/api/action-run", "/api/ask"}:
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
             return
 
@@ -91,6 +93,24 @@ class StackCoachHandler(SimpleHTTPRequestHandler):
             )
             record_request_plan(plan)
             self._send_json(plan)
+            return
+
+        if self.path == "/api/action-contract":
+            plan = payload.get("plan")
+            if not isinstance(plan, dict):
+                self.send_error(HTTPStatus.BAD_REQUEST, "plan must be an object")
+                return
+            self._send_json(build_action_contract(plan))
+            return
+
+        if self.path == "/api/action-run":
+            contract = payload.get("contract")
+            if not isinstance(contract, dict):
+                self.send_error(HTTPStatus.BAD_REQUEST, "contract must be an object")
+                return
+            result = execute_guarded_action(contract, str(payload.get("confirmation", "")))
+            record_action_result(result)
+            self._send_json(result)
             return
 
         if self.path == "/api/ask":

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections import Counter
 import shlex
 
+from .maintenance_actions import attach_action_contract
+
 
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 
@@ -406,7 +408,7 @@ def _build_action_plans(findings: list[dict], os_name: str) -> list[dict]:
     for finding in findings:
         plan = _plan_for_finding(finding, platform)
         if plan:
-            plans.append(plan)
+            plans.append(attach_action_contract(plan))
     return plans
 
 

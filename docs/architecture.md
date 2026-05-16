@@ -11,6 +11,7 @@ System Stack Review and Coach is a local-only educational and maintenance-coachi
 - `src/stack_review_coach/agents.py`: Defines local probe agents that execute version and capability checks for system tools.
 - `src/stack_review_coach/ai_engine.py`: Connects to the local Ollama service and builds coaching prompts from the report and filesystem map.
 - `src/stack_review_coach/diagnostics.py`: Collects read-only maintenance facts such as disk, memory, load, services, logs, network basics, and package-manager health.
+- `src/stack_review_coach/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and blocked action-result records.
 - `src/stack_review_coach/maintenance_history.py`: Appends local JSONL history records for diagnostic snapshots, request plans, approval decisions, and future action results.
 - `src/stack_review_coach/maintenance_reporting.py`: Turns maintenance diagnostics into ranked findings and approval-required plan previews.
 - `src/stack_review_coach/request_plans.py`: Converts specific user requests into platform-aware approval-required plans without execution.
@@ -29,9 +30,10 @@ System Stack Review and Coach is a local-only educational and maintenance-coachi
 4. If the user opts in, the filesystem mapper scans only the selected locations.
 5. The reporting layer enriches those findings with explanatory knowledge and compatibility notes.
 6. If the user runs maintenance diagnostics, read-only checks collect system-health evidence and convert it into findings and approval-required plan previews.
-7. Maintenance reports and Request Desk plans are appended to local history for later review.
-8. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
-9. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
+7. Prepared plans receive an approved-action contract, but execution remains blocked by governance.
+8. Maintenance reports, Request Desk plans, and blocked action results can be appended to local history for later review.
+9. If the user asks a question, the desktop shell builds a local prompt from the report, optional map, and optional maintenance diagnostics, then submits it to the local Ollama model.
+10. The desktop shell renders the final report, approval queue, history, and AI coaching conversation for exploration and sharing.
 
 The desktop shell adapts its layout based on window size so smaller screens can stack major panels vertically while larger screens stay side-by-side.
 
@@ -57,5 +59,6 @@ No remote services are required, and no probe or filesystem results are transmit
 - Filesystem mapping is opt-in and scope-based to avoid surprising broad scans across the machine.
 - Local AI coaching uses an on-device model through Ollama so stack questions can stay within the local environment.
 - Maintenance diagnostics are read-only in the current governance level. Prepared plans require approval and execution is disabled until the action runner is explicitly designed and reassessed.
+- Approved-action contracts make future execution requirements visible, but guarded execution is blocked until governance, autonomy, and implementation are reassessed.
 - Local history is JSONL so support handoff can use regular file tools without a database dependency.
 - Browser mode is the portability baseline. Native Windows UI support is a future enhancement unless a cross-platform GUI toolkit is introduced.

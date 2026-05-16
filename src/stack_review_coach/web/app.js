@@ -304,6 +304,20 @@ function planDetailsHtml(plan) {
         .map((step) => `<li>${step}</li>`)
         .join("")}</ul>`
     : "";
+  const contract = plan.action_contract
+    ? `
+      <p><strong>Action runner contract</strong></p>
+      <ul class="text-list compact-list">
+        <li>Contract: ${plan.action_contract.contract_version}</li>
+        <li>Action id: ${plan.action_contract.id}</li>
+        <li>Eligible for guarded execution: ${plan.action_contract.eligible_for_guarded_execution ? "yes" : "no"}</li>
+        <li>Execution enabled: ${plan.action_contract.execution_enabled ? "yes" : "no"}</li>
+        <li>Confirmation phrase: <code>${plan.action_contract.confirmation_phrase}</code></li>
+        ${(plan.action_contract.execution_gate?.reasons || []).map((reason) => `<li>Gate: ${reason}</li>`).join("")}
+        ${(plan.action_contract.post_check || []).map((step) => `<li>Post-check: ${step}</li>`).join("")}
+      </ul>
+    `
+    : "";
   return `
     <p>${plan.summary || plan.expected_effect}</p>
     <p>Risk: ${plan.risk} · Requires privilege: ${plan.requires_privilege ? "yes" : "no"} · Reversible: ${plan.reversible ? "yes" : "no"} · Approval required: ${plan.approval_required ? "yes" : "no"} · Execution enabled: ${plan.execution_enabled ? "yes" : "no"}</p>
@@ -314,6 +328,7 @@ function planDetailsHtml(plan) {
     <p>${plan.expected_effect}</p>
     ${rollback}
     <p>${plan.approval_prompt}</p>
+    ${contract}
   `;
 }
 

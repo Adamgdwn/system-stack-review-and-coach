@@ -222,6 +222,21 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         if rollback:
             lines.extend(["Rollback:", *[f"- {step}" for step in rollback]])
         lines.append(f"Approval gate: {plan['approval_prompt']}")
+        contract = plan.get("action_contract")
+        if contract:
+            gate_reasons = contract.get("execution_gate", {}).get("reasons", [])
+            lines.extend(
+                [
+                    "Action runner contract:",
+                    f"- Contract: {contract['contract_version']}",
+                    f"- Action id: {contract['id']}",
+                    f"- Eligible for guarded execution: {contract['eligible_for_guarded_execution']}",
+                    f"- Execution enabled: {contract['execution_enabled']}",
+                    f"- Confirmation phrase: {contract['confirmation_phrase']}",
+                    *[f"- Gate: {reason}" for reason in gate_reasons],
+                    *[f"- Post-check: {item}" for item in contract.get("post_check", [])],
+                ]
+            )
         return "\n".join(lines)
 
     def _build_scan_page(self) -> None:

@@ -67,6 +67,8 @@ class MaintenanceReportingTests(unittest.TestCase):
         self.assertFalse(report["summary"]["execution_enabled"])
         self.assertEqual(report["action_plans"][0]["finding_id"], "disk-_")
         self.assertTrue(report["action_plans"][0]["approval_required"])
+        self.assertIn("action_contract", report["action_plans"][0])
+        self.assertFalse(report["action_plans"][0]["action_contract"]["execution_enabled"])
         self.assertIn("du -h", " ".join(report["action_plans"][0]["commands"]))
 
     def test_windows_log_plan_uses_event_log_commands(self):

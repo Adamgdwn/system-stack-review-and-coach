@@ -5,6 +5,8 @@ from __future__ import annotations
 import platform
 import re
 
+from .maintenance_actions import attach_action_contract
+
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
@@ -56,7 +58,7 @@ def _request_plan(
     rollback: list[str],
     approval_prompt: str,
 ) -> dict:
-    return {
+    return attach_action_contract({
         "id": plan_id,
         "family": family,
         "title": title,
@@ -73,7 +75,7 @@ def _request_plan(
         "expected_effect": expected_effect,
         "rollback": rollback,
         "approval_prompt": approval_prompt,
-    }
+    })
 
 
 def _triage_plan(request_text: str, os_name: str, family: str = "unknown") -> dict:
