@@ -1,8 +1,8 @@
-# System Stack Review and Coach
+# System Coach and Maintenance Manager
 
 ## Purpose
 
-System Stack Review and Coach is a local-first desktop app that helps people understand and maintain the development environment already sitting in front of them. It inspects the current machine with small local probe agents, explains what installed tools do, highlights common stack patterns, runs read-only maintenance diagnostics, and presents the results in a guided native GUI built for new to intermediate coders and system owners.
+System Coach and Maintenance Manager is a local-first desktop app that helps people understand and maintain the development environment already sitting in front of them. It inspects the current machine with small local probe agents, explains what installed tools do, highlights common stack patterns, runs read-only maintenance diagnostics, and presents the results in a guided native GUI built for new to intermediate coders and system owners.
 
 The tool also supports opt-in filesystem mapping and interactive local AI coaching. Users choose which roots the app may inspect, and the app turns common project files and config locations into a readable map of what is on the machine, what each part generally does, and how the pieces fit together.
 
@@ -29,7 +29,7 @@ Requirements:
 Run locally in the native desktop shell:
 
 ```bash
-PYTHONPATH=src python3 -m stack_review_coach
+PYTHONPATH=src python3 -m system_coach_maintenance_manager
 ```
 
 Install in editable mode if you want the console entry point:
@@ -38,25 +38,25 @@ Install in editable mode if you want the console entry point:
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
-stack-review-coach
+system-coach
 ```
 
 Use the launcher script:
 
 ```bash
-bash launchers/run-stack-coach.sh
+bash launchers/run-system-coach.sh
 ```
 
 Optional browser fallback:
 
 ```bash
-PYTHONPATH=src python3 -m stack_review_coach --browser
+PYTHONPATH=src python3 -m system_coach_maintenance_manager --browser
 ```
 
 On Windows, use browser mode first:
 
 ```powershell
-$env:PYTHONPATH="src"; python -m stack_review_coach --browser
+$env:PYTHONPATH="src"; python -m system_coach_maintenance_manager --browser
 ```
 
 Install the desktop entry:

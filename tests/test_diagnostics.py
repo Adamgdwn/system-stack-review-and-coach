@@ -2,7 +2,7 @@ import unittest
 from collections import namedtuple
 from unittest.mock import patch
 
-from stack_review_coach.diagnostics import collect_diagnostics
+from system_coach_maintenance_manager.diagnostics import collect_diagnostics
 
 
 class DiagnosticsTests(unittest.TestCase):
@@ -35,12 +35,12 @@ class DiagnosticsTests(unittest.TestCase):
                 }
             return {"command": command, "exit_code": 0, "output": "", "duration_ms": 1}
 
-        with patch("stack_review_coach.diagnostics.shutil.disk_usage", return_value=disk_usage), patch(
-            "stack_review_coach.diagnostics._read_meminfo", return_value=meminfo
-        ), patch("stack_review_coach.diagnostics._run_command", side_effect=fake_command), patch(
-            "stack_review_coach.diagnostics.shutil.which", return_value="/usr/bin/tool"
+        with patch("system_coach_maintenance_manager.diagnostics.shutil.disk_usage", return_value=disk_usage), patch(
+            "system_coach_maintenance_manager.diagnostics._read_meminfo", return_value=meminfo
+        ), patch("system_coach_maintenance_manager.diagnostics._run_command", side_effect=fake_command), patch(
+            "system_coach_maintenance_manager.diagnostics.shutil.which", return_value="/usr/bin/tool"
         ), patch(
-            "stack_review_coach.diagnostics.socket.getaddrinfo", return_value=[("ok",)]
+            "system_coach_maintenance_manager.diagnostics.socket.getaddrinfo", return_value=[("ok",)]
         ):
             report = collect_diagnostics()
 

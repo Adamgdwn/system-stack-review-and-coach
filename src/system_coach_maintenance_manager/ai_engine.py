@@ -80,7 +80,7 @@ def build_context(
         return "No system report is available yet. Ask the user to run a local review first."
 
     lines = [
-        "You are a local desktop coaching assistant for a system stack learning app.",
+        "You are a local desktop coaching assistant for System Coach and Maintenance Manager.",
         "Answer clearly for a new to intermediate coder.",
         "Prefer practical, general explanations over deep theory.",
         "Base your answer on the local report and map below.",

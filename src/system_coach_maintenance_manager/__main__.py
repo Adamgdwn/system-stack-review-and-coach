@@ -6,7 +6,7 @@ import argparse
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Launch the System Stack Review and Coach GUI.")
+    parser = argparse.ArgumentParser(description="Launch the System Coach and Maintenance Manager GUI.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--no-browser", action="store_true")

@@ -463,7 +463,7 @@ async function copyShareSummary() {
   }
 
   const lines = [
-    "System Stack Review and Coach",
+    "System Coach and Maintenance Manager",
     "",
     `Generated: ${new Date(currentReport.generated_at).toLocaleString()}`,
     `Operating system: ${currentReport.environment.os}`,

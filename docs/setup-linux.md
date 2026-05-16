@@ -19,7 +19,7 @@ ollama pull gemma4:latest
 Run from the repository:
 
 ```bash
-PYTHONPATH=src python3 -m stack_review_coach
+PYTHONPATH=src python3 -m system_coach_maintenance_manager
 ```
 
 Optional editable install with the console command:
@@ -28,7 +28,7 @@ Optional editable install with the console command:
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
-stack-review-coach
+system-coach
 ```
 
 Install the desktop launcher:
@@ -40,7 +40,7 @@ bash launchers/install-desktop-entry.sh
 Browser fallback:
 
 ```bash
-PYTHONPATH=src python3 -m stack_review_coach --browser
+PYTHONPATH=src python3 -m system_coach_maintenance_manager --browser
 ```
 
 ## Fedora
@@ -54,7 +54,7 @@ sudo dnf install python3 python3-gobject gtk3 git
 Run:
 
 ```bash
-PYTHONPATH=src python3 -m stack_review_coach
+PYTHONPATH=src python3 -m system_coach_maintenance_manager
 ```
 
 ## Arch Linux
@@ -68,7 +68,7 @@ sudo pacman -S python python-gobject gtk3 git
 Run:
 
 ```bash
-PYTHONPATH=src python -m stack_review_coach
+PYTHONPATH=src python -m system_coach_maintenance_manager
 ```
 
 ## Local History
@@ -76,7 +76,7 @@ PYTHONPATH=src python -m stack_review_coach
 Maintenance diagnostics and Request Desk plans are written to `history/maintenance-history.jsonl` by default. To move the archive:
 
 ```bash
-export STACK_COACH_HISTORY_DIR="$HOME/.local/share/system-stack-review-and-coach/history"
+export SYSTEM_COACH_HISTORY_DIR="$HOME/.local/share/system-coach-maintenance-manager/history"
 ```
 
 ## Validation

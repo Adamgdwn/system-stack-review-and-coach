@@ -1,4 +1,4 @@
-# ADR 0001: Use a Local Web GUI for the Stack Coach
+# ADR 0001: Use a Local Web GUI for the System Coach
 
 ## Status
 

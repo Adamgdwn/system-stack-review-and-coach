@@ -31,7 +31,7 @@ export PATH
 cd "${repo_root}"
 if [[ "${1:-}" == "--browser" ]]; then
   shift
-  PYTHONPATH="${repo_root}/src" exec python3 -m stack_review_coach --browser "$@"
+  PYTHONPATH="${repo_root}/src" exec python3 -m system_coach_maintenance_manager --browser "$@"
 fi
 
-PYTHONPATH="${repo_root}/src" exec python3 -m stack_review_coach "$@"
+PYTHONPATH="${repo_root}/src" exec python3 -m system_coach_maintenance_manager "$@"

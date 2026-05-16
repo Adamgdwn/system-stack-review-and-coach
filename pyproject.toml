@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "system-stack-review-and-coach"
+name = "system-coach-maintenance-manager"
 version = "0.1.0"
-description = "Local-first system stack review, maintenance diagnostics, and coaching tool."
+description = "Local-first system coaching, maintenance diagnostics, and troubleshooting tool."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Adam Goodwin" }]
@@ -13,10 +13,10 @@ license = { text = "Proprietary" }
 dependencies = []
 
 [project.scripts]
-stack-review-coach = "stack_review_coach.__main__:main"
+system-coach = "system_coach_maintenance_manager.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-stack_review_coach = ["web/*.html", "web/*.css", "web/*.js"]
+system_coach_maintenance_manager = ["web/*.html", "web/*.css", "web/*.js"]

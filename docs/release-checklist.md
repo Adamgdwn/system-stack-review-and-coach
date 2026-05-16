@@ -17,7 +17,7 @@ Use this checklist before sharing a build with another machine or user.
 
 ## Linux Native Smoke Test
 
-- Launch with `PYTHONPATH=src python3 -m stack_review_coach`.
+- Launch with `PYTHONPATH=src python3 -m system_coach_maintenance_manager`.
 - Confirm the GTK window opens.
 - Run Local Review.
 - Run Maintenance Diagnostics.
@@ -30,7 +30,7 @@ Use this checklist before sharing a build with another machine or user.
 
 ## Browser Fallback Smoke Test
 
-- Launch with `PYTHONPATH=src python3 -m stack_review_coach --browser --no-browser`.
+- Launch with `PYTHONPATH=src python3 -m system_coach_maintenance_manager --browser --no-browser`.
 - Open the printed local URL.
 - Confirm `/health` returns `ok`.
 - Run Local Review.
@@ -42,7 +42,7 @@ Use this checklist before sharing a build with another machine or user.
 
 ## Windows Browser Mode Smoke Test
 
-- Launch from PowerShell with `$env:PYTHONPATH="src"; python -m stack_review_coach --browser --no-browser`.
+- Launch from PowerShell with `$env:PYTHONPATH="src"; python -m system_coach_maintenance_manager --browser --no-browser`.
 - Open the printed local URL.
 - Confirm local review, Request Desk, Approval Queue, History, and Coach Chat render.
 - Confirm action contracts are visible and execution remains disabled.
@@ -50,7 +50,7 @@ Use this checklist before sharing a build with another machine or user.
 
 ## Packaging
 
-- Confirm `pyproject.toml` includes `src/stack_review_coach/web` package data.
-- Confirm editable install inside a virtual environment exposes `stack-review-coach`.
-- Confirm `stack-review-coach` launches the same CLI as `python -m stack_review_coach`.
+- Confirm `pyproject.toml` includes `src/system_coach_maintenance_manager/web` package data.
+- Confirm editable install inside a virtual environment exposes `system-coach`.
+- Confirm `system-coach` launches the same CLI as `python -m system_coach_maintenance_manager`.
 - Confirm docs mention platform-specific setup paths and Ollama model tags.

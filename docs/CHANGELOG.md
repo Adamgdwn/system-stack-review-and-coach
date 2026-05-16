@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Renamed the application, package, launchers, desktop IDs, environment variable, and documentation to System Coach and Maintenance Manager.
 - Completed roadmap Chunk 7 by adding an approved-action contract with command previews, timeout/output/post-check/rollback fields, confirmation phrases, UI visibility, and history-compatible action results.
 - Completed roadmap Chunk 8 as a guarded scaffold: low-risk eligibility checks and blocked action-run results exist, but execution remains disabled pending governance reassessment.
 - Completed roadmap Chunk 5 by separating Chat, Request Desk, Approval Queue, and History surfaces and adding changed-since-last diagnostic summaries.
@@ -19,7 +20,7 @@
 - Added a Request Desk for platform-aware approval plans, starting with cursor/pointer size changes on Linux and Windows.
 - Added browser fallback Coach Chat so Windows and Linux browser-mode users can ask the local model with current context.
 - Made browser mode import lazily so Windows systems can launch without GTK.
-- Built the first working System Stack Review and Coach application.
+- Built the first working System Coach and Maintenance Manager application.
 - Added a local web GUI with learner-friendly stack reporting and compatibility notes.
 - Added bounded local probe agents for environment and toolchain inspection.
 - Added an opt-in filesystem mapper for selected roots with project and config discovery.

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from stack_review_coach.maintenance_history import (
+from system_coach_maintenance_manager.maintenance_history import (
     format_history,
     load_history,
     record_approval_decision,

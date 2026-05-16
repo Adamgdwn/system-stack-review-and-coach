@@ -18,7 +18,7 @@ def _now() -> str:
 
 
 def history_dir() -> Path:
-    configured = os.environ.get("STACK_COACH_HISTORY_DIR")
+    configured = os.environ.get("SYSTEM_COACH_HISTORY_DIR")
     if configured:
         return Path(configured).expanduser()
     return Path.cwd() / "history"

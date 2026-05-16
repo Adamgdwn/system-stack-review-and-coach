@@ -3,7 +3,7 @@
 ## Metadata
 
 - Exception ID: EX-2026-04-05-governance-home
-- Project: system-stack-review-and-coach
+- Project: system-coach-maintenance-manager
 - Standard: Governance preflight execution
 - Status: Closed
 - Approval date: 2026-04-05

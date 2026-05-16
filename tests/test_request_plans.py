@@ -1,6 +1,6 @@
 import unittest
 
-from stack_review_coach.request_plans import format_request_plan, prepare_request_plan
+from system_coach_maintenance_manager.request_plans import format_request_plan, prepare_request_plan
 
 
 class RequestPlanTests(unittest.TestCase):

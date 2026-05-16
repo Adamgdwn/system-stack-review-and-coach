@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from stack_review_coach.scanner import map_filesystem
+from system_coach_maintenance_manager.scanner import map_filesystem
 
 
 class ScannerTests(unittest.TestCase):

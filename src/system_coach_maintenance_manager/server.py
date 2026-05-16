@@ -1,4 +1,4 @@
-"""Local web server that exposes the stack review GUI and JSON API."""
+"""Local web server that exposes the System Coach browser GUI and JSON API."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def build_maintenance_report() -> dict:
     return report
 
 
-class StackCoachHandler(SimpleHTTPRequestHandler):
+class SystemCoachHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
@@ -142,13 +142,13 @@ def _find_open_port() -> int:
 
 def serve(host: str = "127.0.0.1", port: int | None = None, open_browser: bool = True) -> None:
     active_port = port or _find_open_port()
-    server = ThreadingHTTPServer((host, active_port), StackCoachHandler)
+    server = ThreadingHTTPServer((host, active_port), SystemCoachHandler)
     url = f"http://{host}:{active_port}"
 
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
 
-    print(f"System Stack Review and Coach running at {url}")
+    print(f"System Coach and Maintenance Manager running at {url}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

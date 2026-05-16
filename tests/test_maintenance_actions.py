@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from stack_review_coach.maintenance_actions import build_action_contract, execute_guarded_action
+from system_coach_maintenance_manager.maintenance_actions import build_action_contract, execute_guarded_action
 
 
 class MaintenanceActionsTests(unittest.TestCase):

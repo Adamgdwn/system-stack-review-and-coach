@@ -1,4 +1,4 @@
-# Initial Scope — System Stack Review and Coach
+# Initial Scope — System Coach and Maintenance Manager
 
 Generated: 2026-04-05
 
@@ -6,13 +6,13 @@ Generated: 2026-04-05
 
 | Field          | Value |
 |----------------|-------|
-| Project name   | System Stack Review and Coach |
-| Slug / dir     | system-stack-review-and-coach |
+| Project name   | System Coach and Maintenance Manager |
+| Slug / dir     | system-coach-maintenance-manager |
 | Type           | internal-tool |
 | Risk tier      | medium |
 | Stack          | not specified |
 | Primary model  | codex |
-| Location       | /home/adamgoodwin/code/Applications/system-stack-review-and-coach |
+| Location       | /home/adamgoodwin/code/Applications/system-coach-maintenance-manager |
 
 ## Build approach
 

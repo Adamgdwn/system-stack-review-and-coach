@@ -2,7 +2,7 @@
 
 ## Environments
 
-- `dev`: Local execution from the repository with `PYTHONPATH=src python3 -m stack_review_coach`
+- `dev`: Local execution from the repository with `PYTHONPATH=src python3 -m system_coach_maintenance_manager`
 - `staging`: Desktop-launch validation on a representative workstation
 - `prod`: Internal workstation use through the installed desktop entry
 
@@ -12,11 +12,11 @@ Because this is a local internal tool, staging and prod differ mainly by install
 
 1. Validate the code locally with tests and compile checks.
 2. Choose the target interface:
-   - Linux native GTK: `PYTHONPATH=src python3 -m stack_review_coach`
-   - Browser fallback: `PYTHONPATH=src python3 -m stack_review_coach --browser`
-   - Windows browser mode: `$env:PYTHONPATH="src"; python -m stack_review_coach --browser`
+   - Linux native GTK: `PYTHONPATH=src python3 -m system_coach_maintenance_manager`
+   - Browser fallback: `PYTHONPATH=src python3 -m system_coach_maintenance_manager --browser`
+   - Windows browser mode: `$env:PYTHONPATH="src"; python -m system_coach_maintenance_manager --browser`
 3. Install or update the desktop launcher on Linux with `bash launchers/install-desktop-entry.sh` when native mode is desired.
-4. Optionally install in a virtual environment with `python3 -m venv .venv`, `. .venv/bin/activate`, and `python -m pip install -e .` to expose the `stack-review-coach` console command.
+4. Optionally install in a virtual environment with `python3 -m venv .venv`, `. .venv/bin/activate`, and `python -m pip install -e .` to expose the `system-coach` console command.
 5. Ensure Ollama is running with at least one supported local model if AI coaching is expected.
 6. Start the application from the launcher or CLI.
 7. Confirm that the selected interface opens and the review report renders.
@@ -24,8 +24,8 @@ Because this is a local internal tool, staging and prod differ mainly by install
 ## Rollback
 
 1. Remove the installed desktop files:
-   - `~/.local/share/applications/system-stack-review-and-coach.desktop`
-   - `~/Desktop/System Stack Review and Coach.desktop`
+   - `~/.local/share/applications/system-coach-maintenance-manager.desktop`
+   - `~/Desktop/System Coach and Maintenance Manager.desktop`
 2. Revert the repository to the previous known-good version.
 3. Reinstall the launcher from that version if needed.
 

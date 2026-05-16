@@ -27,9 +27,9 @@ Likely failure conditions:
 
 First response:
 
-1. Run `bash launchers/run-stack-coach.sh`.
-2. If the desktop shell still fails, try `PYTHONPATH=src python3 -m stack_review_coach --browser` as a fallback.
-3. On Windows, use `$env:PYTHONPATH="src"; python -m stack_review_coach --browser`.
+1. Run `bash launchers/run-system-coach.sh`.
+2. If the desktop shell still fails, try `PYTHONPATH=src python3 -m system_coach_maintenance_manager --browser` as a fallback.
+3. On Windows, use `$env:PYTHONPATH="src"; python -m system_coach_maintenance_manager --browser`.
 4. Check the command log in the UI to see which probe failed or timed out.
 5. Refresh the local AI status line and confirm `ollama list` shows an installed model.
 6. Reduce filesystem scan scope to one or two specific roots if mapping is slow.
@@ -43,12 +43,12 @@ First response:
 - `python3`
 - GTK 3 via `python3-gi`
 - `ollama` with a supported local model for AI coaching
-- The files under `src/stack_review_coach/web/`
+- The files under `src/system_coach_maintenance_manager/web/`
 - Optional local tools being probed, such as `git`, `node`, `docker`, and `gh`
 - Optional read-only maintenance commands such as `findmnt`, `systemctl`, `journalctl`, `ip`, and a local package manager
 - Windows browser mode can use read-only commands such as `wevtutil`, `route`, and `winget` when present
 - Read access for any folders the user chooses to map
-- Write access to `history/maintenance-history.jsonl` or the directory configured by `STACK_COACH_HISTORY_DIR`
+- Write access to `history/maintenance-history.jsonl` or the directory configured by `SYSTEM_COACH_HISTORY_DIR`
 
 ## Recovery
 
@@ -60,7 +60,7 @@ First response:
 - If an approval-required plan is generated, treat it as a preview only. This version does not execute maintenance fixes.
 - If a user request plan is generated, confirm the platform, command, target setting, reversibility, and approval gate before any future execution support is considered.
 - If an action contract says execution is blocked, that is expected under governance level `1` and autonomy `A1`.
-- If history does not update, check directory permissions or set `STACK_COACH_HISTORY_DIR` to a writable local path.
+- If history does not update, check directory permissions or set `SYSTEM_COACH_HISTORY_DIR` to a writable local path.
 - If the Approval Queue looks empty after a plan is prepared, refresh diagnostics or prepare the request again and check the browser console or terminal for errors.
 - If AI answers fail, verify `ollama` is running locally and the model list includes a supported model such as `gemma4:latest`.
 - If the window feels cramped, resize it; the shell should reflow between side-by-side and stacked layouts automatically.

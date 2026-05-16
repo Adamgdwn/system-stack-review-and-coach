@@ -19,7 +19,7 @@ using the same operating rules.
 
 ## Commands
 - Install: `bash launchers/install-desktop-entry.sh`
-- Dev:     `PYTHONPATH=src python3 -m stack_review_coach`
+- Dev:     `PYTHONPATH=src python3 -m system_coach_maintenance_manager`
 - Lint:    `python3 -m compileall src tests`
 - Build:   `python3 -m compileall src`
 - Test:    `PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`

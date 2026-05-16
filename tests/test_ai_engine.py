@@ -1,6 +1,6 @@
 import unittest
 
-from stack_review_coach.ai_engine import build_context, choose_model
+from system_coach_maintenance_manager.ai_engine import build_context, choose_model
 
 
 class AiEngineTests(unittest.TestCase):

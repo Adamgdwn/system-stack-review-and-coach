@@ -2,7 +2,7 @@
 
 ## Purpose
 
-System Stack Review and Coach is a local-first desktop tool for understanding the machine it runs on. It explains installed development tools, maps user-selected filesystem roots, and offers local AI coaching through Ollama when available.
+System Coach and Maintenance Manager is a local-first desktop tool for understanding the machine it runs on. It explains installed development tools, maps user-selected filesystem roots, and offers local AI coaching through Ollama when available.
 
 The next product direction is to grow this into a system maintenance and troubleshooting coach while keeping user approval at the center of any machine-changing action.
 
@@ -28,7 +28,7 @@ The current build does not apply machine-changing actions. Action contracts are 
 
 ## Common Workflows
 
-1. Launch the desktop app with `bash launchers/run-stack-coach.sh`.
+1. Launch the desktop app with `bash launchers/run-system-coach.sh`.
 2. Run a local review to inspect the current environment and installed tools.
 3. Optionally scan selected roots to discover projects and configuration files.
 4. Ask the local coach questions about the detected stack or selected roots.

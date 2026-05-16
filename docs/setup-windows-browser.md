@@ -15,14 +15,14 @@ From the repository root:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m stack_review_coach --browser
+python -m system_coach_maintenance_manager --browser
 ```
 
 To start without opening a browser automatically:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m stack_review_coach --browser --no-browser
+python -m system_coach_maintenance_manager --browser --no-browser
 ```
 
 The server binds to `127.0.0.1` by default and prints the local URL.
@@ -43,7 +43,7 @@ The app will fall back to another installed local model if the preferred tag is 
 Maintenance diagnostics and Request Desk plans are written to `history\maintenance-history.jsonl` by default. To move the archive:
 
 ```powershell
-$env:STACK_COACH_HISTORY_DIR = "$env:LOCALAPPDATA\SystemStackReviewAndCoach\history"
+$env:SYSTEM_COACH_HISTORY_DIR = "$env:LOCALAPPDATA\SystemCoachMaintenanceManager\history"
 ```
 
 ## Supported Workflows
@@ -61,5 +61,5 @@ $env:STACK_COACH_HISTORY_DIR = "$env:LOCALAPPDATA\SystemStackReviewAndCoach\hist
 $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -p "test_*.py"
 python -m compileall src tests
-python -m stack_review_coach --browser --no-browser
+python -m system_coach_maintenance_manager --browser --no-browser
 ```

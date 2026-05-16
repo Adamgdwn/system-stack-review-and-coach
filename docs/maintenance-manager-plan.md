@@ -2,7 +2,7 @@
 
 ## Product Posture
 
-System Stack Review and Coach should grow into a local maintenance and troubleshooting coach before it becomes a fixer. The first maintenance versions should inspect, explain, prioritize, and prepare user-approved action plans.
+System Coach and Maintenance Manager should grow into a local maintenance and troubleshooting coach before it becomes a fixer. The first maintenance versions should inspect, explain, prioritize, and prepare user-approved action plans.
 
 The operating rule is:
 

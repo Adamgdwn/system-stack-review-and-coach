@@ -5,7 +5,7 @@ from __future__ import annotations
 
 def build_share_text(report: dict, system_map: dict | None = None, maintenance_report: dict | None = None) -> str:
     lines = [
-        "System Stack Review and Coach",
+        "System Coach and Maintenance Manager",
         "",
         f"Generated: {report['generated_at']}",
         f"Operating system: {report['environment'].get('os', 'Unknown')}",

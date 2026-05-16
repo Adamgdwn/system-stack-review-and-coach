@@ -1,6 +1,6 @@
 import unittest
 
-from stack_review_coach.reporting import generate_report
+from system_coach_maintenance_manager.reporting import generate_report
 
 
 class ReportingTests(unittest.TestCase):

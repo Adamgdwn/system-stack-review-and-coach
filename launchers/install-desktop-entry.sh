@@ -3,11 +3,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-launcher="${repo_root}/launchers/run-stack-coach.sh"
+launcher="${repo_root}/launchers/run-system-coach.sh"
 desktop_dir="${HOME}/Desktop"
 applications_dir="${HOME}/.local/share/applications"
-desktop_file="${applications_dir}/system-stack-review-and-coach.desktop"
-desktop_copy="${desktop_dir}/System Stack Review and Coach.desktop"
+desktop_file="${applications_dir}/system-coach-maintenance-manager.desktop"
+desktop_copy="${desktop_dir}/System Coach and Maintenance Manager.desktop"
 icon="utilities-terminal"
 
 mkdir -p "${applications_dir}" "${desktop_dir}"
@@ -15,8 +15,8 @@ mkdir -p "${applications_dir}" "${desktop_dir}"
 cat > "${desktop_file}" <<EOF
 [Desktop Entry]
 Type=Application
-Name=System Stack Review and Coach
-Comment=Learn the local development stack through guided local reviews
+Name=System Coach and Maintenance Manager
+Comment=Review, understand, and maintain this computer through guided local coaching
 Exec=${launcher}
 Path=${repo_root}
 Terminal=false

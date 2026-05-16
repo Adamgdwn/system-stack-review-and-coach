@@ -1,4 +1,4 @@
-"""Native GTK desktop shell for the stack coach."""
+"""Native GTK desktop shell for the system coach."""
 
 from __future__ import annotations
 
@@ -32,11 +32,11 @@ def build_maintenance_report() -> dict:
     return generate_maintenance_report(collect_diagnostics())
 
 
-class StackCoachWindow(Gtk.ApplicationWindow):
+class SystemCoachWindow(Gtk.ApplicationWindow):
     NARROW_LAYOUT_WIDTH = 1120
 
     def __init__(self, app: Gtk.Application):
-        super().__init__(application=app, title="System Stack Review and Coach")
+        super().__init__(application=app, title="System Coach and Maintenance Manager")
         self.set_default_size(1220, 840)
         self.set_border_width(16)
 
@@ -54,7 +54,7 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         root.pack_start(header, False, False, 0)
 
         title = Gtk.Label()
-        title.set_markup("<span size='24000' weight='bold'>System Stack Review and Coach</span>")
+        title.set_markup("<span size='24000' weight='bold'>System Coach and Maintenance Manager</span>")
         title.set_xalign(0)
         header.pack_start(title, False, False, 0)
 
@@ -792,17 +792,17 @@ class StackCoachWindow(Gtk.ApplicationWindow):
         return False
 
 
-class StackCoachDesktopApp(Gtk.Application):
+class SystemCoachDesktopApp(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="local.stack.review.coach")
+        super().__init__(application_id="local.system.coach.maintenance.manager")
 
     def do_activate(self) -> None:  # noqa: N802
         window = self.props.active_window
         if not window:
-            window = StackCoachWindow(self)
+            window = SystemCoachWindow(self)
         window.present()
 
 
 def run_desktop() -> None:
-    app = StackCoachDesktopApp()
+    app = SystemCoachDesktopApp()
     app.run(None)

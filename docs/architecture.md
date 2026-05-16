@@ -2,23 +2,23 @@
 
 ## Summary
 
-System Stack Review and Coach is a local-only educational and maintenance-coaching application that helps users understand the tools installed on their machine and inspect basic system health. It runs as a native GTK desktop application by default, executes local probe agents to inspect the environment, optionally maps user-approved filesystem roots, runs read-only maintenance diagnostics, and renders the results in separated review, Request Desk, Approval Queue, History, and Chat surfaces. It can also use a local Ollama-served model to answer interactive questions about the detected environment and diagnostics. A browser-hosted mode remains available as a fallback.
+System Coach and Maintenance Manager is a local-only educational and maintenance-coaching application that helps users understand the tools installed on their machine and inspect basic system health. It runs as a native GTK desktop application by default, executes local probe agents to inspect the environment, optionally maps user-approved filesystem roots, runs read-only maintenance diagnostics, and renders the results in separated review, Request Desk, Approval Queue, History, and Chat surfaces. It can also use a local Ollama-served model to answer interactive questions about the detected environment and diagnostics. A browser-hosted mode remains available as a fallback.
 
 ## Components
 
-- `src/stack_review_coach/desktop_app.py`: Native GTK desktop shell and primary local Linux user interface.
-- `src/stack_review_coach/server.py`: Optional local HTTP server for browser fallback mode across Windows and Linux distributions.
-- `src/stack_review_coach/agents.py`: Defines local probe agents that execute version and capability checks for system tools.
-- `src/stack_review_coach/ai_engine.py`: Connects to the local Ollama service and builds coaching prompts from the report and filesystem map.
-- `src/stack_review_coach/diagnostics.py`: Collects read-only maintenance facts such as disk, memory, load, services, logs, network basics, and package-manager health.
-- `src/stack_review_coach/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and blocked action-result records.
-- `src/stack_review_coach/maintenance_history.py`: Appends local JSONL history records for diagnostic snapshots, request plans, approval decisions, and future action results.
-- `src/stack_review_coach/maintenance_reporting.py`: Turns maintenance diagnostics into ranked findings and approval-required plan previews.
-- `src/stack_review_coach/request_plans.py`: Converts specific user requests into platform-aware approval-required plans without execution.
-- `src/stack_review_coach/knowledge.py`: Contains built-in explanations for common development tools and stack pairings.
-- `src/stack_review_coach/scanner.py`: Performs opt-in filesystem mapping for user-selected roots and discovers projects and config files.
-- `src/stack_review_coach/reporting.py`: Converts raw probe results into learner-friendly summaries, recommendations, and stack pattern matches.
-- `src/stack_review_coach/web/`: Browser UI assets for the interactive learning experience.
+- `src/system_coach_maintenance_manager/desktop_app.py`: Native GTK desktop shell and primary local Linux user interface.
+- `src/system_coach_maintenance_manager/server.py`: Optional local HTTP server for browser fallback mode across Windows and Linux distributions.
+- `src/system_coach_maintenance_manager/agents.py`: Defines local probe agents that execute version and capability checks for system tools.
+- `src/system_coach_maintenance_manager/ai_engine.py`: Connects to the local Ollama service and builds coaching prompts from the report and filesystem map.
+- `src/system_coach_maintenance_manager/diagnostics.py`: Collects read-only maintenance facts such as disk, memory, load, services, logs, network basics, and package-manager health.
+- `src/system_coach_maintenance_manager/maintenance_actions.py`: Defines approved-action contracts, guarded eligibility checks, and blocked action-result records.
+- `src/system_coach_maintenance_manager/maintenance_history.py`: Appends local JSONL history records for diagnostic snapshots, request plans, approval decisions, and future action results.
+- `src/system_coach_maintenance_manager/maintenance_reporting.py`: Turns maintenance diagnostics into ranked findings and approval-required plan previews.
+- `src/system_coach_maintenance_manager/request_plans.py`: Converts specific user requests into platform-aware approval-required plans without execution.
+- `src/system_coach_maintenance_manager/knowledge.py`: Contains built-in explanations for common development tools and stack pairings.
+- `src/system_coach_maintenance_manager/scanner.py`: Performs opt-in filesystem mapping for user-selected roots and discovers projects and config files.
+- `src/system_coach_maintenance_manager/reporting.py`: Converts raw probe results into learner-friendly summaries, recommendations, and stack pattern matches.
+- `src/system_coach_maintenance_manager/web/`: Browser UI assets for the interactive learning experience.
 - `launchers/`: Shell scripts for local execution and desktop installation.
 - `pyproject.toml`: Packaging metadata and console entry point.
 
@@ -50,7 +50,7 @@ No remote services are required, and no probe or filesystem results are transmit
 - Local operating-system commands when present, such as `python3`, `git`, `node`, or `docker`
 - Optional read-only maintenance commands when present, such as Linux `findmnt`, `systemctl`, `journalctl`, `ip`, package-manager health checks, or Windows `wevtutil`, `route`, and `winget`
 - Read access for any folders the user chooses to map
-- Write access to the local history directory, `history/` by default or `STACK_COACH_HISTORY_DIR` when configured
+- Write access to the local history directory, `history/` by default or `SYSTEM_COACH_HISTORY_DIR` when configured
 
 ## Key Decisions
 
